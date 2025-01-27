@@ -1,0 +1,8 @@
+[build]
+  publish = "public"
+  functions = "serverless-functions"
+
+[[redirects]]
+  from = "/upload"
+  to = "/.netlify/functions/upload"
+  status = 200
