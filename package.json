@@ -2,7 +2,6 @@
   "name": "combinedversion",
   "version": "1.0.0",
   "description": "A project utilizing Three.js and serverless functions on Netlify",
-  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "parcel build public/index.html",
