@@ -36,7 +36,6 @@ exports.handler = async (event, context) => {
         const jsonFilePath = path.join('/tmp', file.originalname.replace(/\.jpe?g$/i, '_pixel_colors.json'));
         fs.writeFileSync(jsonFilePath, JSON.stringify(pixelColors));
 
-        // Return the URL of the JSON file (You may need to adjust the URL based on your setup)
         return resolve({
           statusCode: 200,
           body: JSON.stringify({ message: 'File saved', jsonFilePath: `/.netlify/functions/upload/${file.originalname.replace(/\.jpe?g$/i, '_pixel_colors.json')}` }),
