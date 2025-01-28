@@ -3,21 +3,19 @@ This program converts the RGB values of any chosen JPEG into XYZ coordinates. Ea
 
 
 
+To run it on a local server: 
+Download, unzip and open the main folder in the terminal:
 
-
-Install 
-
-Node.js
-
-Once installed check:
+Install Node.js and check if node is installed:
 bash: node -v
 
-To see the Pointcloud:
+Start a local server to see the pointcloud: cd path\Directory
 
-Start Server:
-cd path\Directory
-bash: node server.js
+bash: node localserver.js
 
-In the browser open 
+It is running if you see
 http://localhost:3000/
 
+Copy paste this url into the browser or ctrl click the link in the terminal
+
+Close local server with ctrl+c
