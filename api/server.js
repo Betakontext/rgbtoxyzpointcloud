@@ -3,10 +3,9 @@ const multer = require('multer');
 const { createCanvas, loadImage } = require('canvas');
 const fs = require('fs');
 const path = require('path');
-const { Router } = require('express');
 
 const app = express();
-const router = Router();
+const router = express.Router();
 
 const imagesDir = path.join(__dirname, '../Bilder');
 const listsDir = path.join(__dirname, '../lists');
