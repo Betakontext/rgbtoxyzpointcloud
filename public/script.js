@@ -35,7 +35,12 @@ function loadPointCloud(jsonFilePath) {
         renderPointCloud(storedPixelColors);
     } else {
         fetch(jsonFilePath)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok " + response.statusText);
+                }
+                return response.json();
+            })
             .then(data => {
                 let pointCloudData;
                 if (Array.isArray(data)) {
