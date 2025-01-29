@@ -19,3 +19,13 @@ http://localhost:3000/
 Copy paste this url into the browser or ctrl click the link in the terminal
 
 Close local server with ctrl+c
+
+------------------
+
+Online Version:
+
+Frontend is deployed on vercel.com
+Backend storage is on supabase.com 
+
+https://rgbtoxyzpointcloud.vercel.app/
+
