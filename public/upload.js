@@ -62,6 +62,3 @@ document.getElementById('fileInput').addEventListener('change', async function(e
     alert('Please upload a valid JPEG image within 3 MB.');
   }
 });
-
-// Add this script tag to your HTML head to include Supabase from a CDN
-// <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@1.30.0/dist/umd/supabase.min.js"></script>
