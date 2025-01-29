@@ -36,7 +36,7 @@ function loadPointCloud(jsonFilePath) {
         fetch(jsonFilePath)
             .then(response => {
                 if (!response.ok) {
-                    throw new Error("Network response was not ok " + response.statusText);
+                    throw new Error(`Network response was not ok: ${response.statusText}`);
                 }
                 return response.json();
             })
@@ -138,3 +138,6 @@ function renderPointCloud(pointCloudData) {
 window.addEventListener('beforeunload', () => {
     sessionStorage.removeItem('pointcloudJson');
 });
+
+// Call loadPointCloud with the correct JSON file path from Supabase
+loadPointCloud('https://unkpdsecvopwhxjodmag.supabase.co/storage/v1/object/public/images/pointcloud.json');
