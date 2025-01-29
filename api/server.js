@@ -1,5 +1,5 @@
 const express = require('express');
-const multer = require('multer');
+const { createClient } = require('@supabase/supabase-js');
 const { createCanvas, loadImage } = require('canvas');
 const fs = require('fs');
 const path = require('path');
@@ -7,60 +7,45 @@ const path = require('path');
 const app = express();
 const router = express.Router();
 
-const imagesDir = path.join(__dirname, '../Bilder');
-const listsDir = path.join(__dirname, '../lists');
+// Initialize Supabase client
+const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4MwAFohH9DHqYu1liHeXRJTLc6ZU_AMfmVXwnnCjYdg';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-if (!fs.existsSync(imagesDir)) {
-  fs.mkdirSync(imagesDir, { recursive: true });
-}
+const listsDir = path.join(__dirname, '../lists');
 
 if (!fs.existsSync(listsDir)) {
   fs.mkdirSync(listsDir, { recursive: true });
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, imagesDir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, file.originalname);
+router.post('/upload', async (req, res) => {
+  const { imagePath } = req.body;
+
+  try {
+    const { data, error } = await supabase.storage
+      .from('images')
+      .download(imagePath);
+
+    if (error) {
+      throw error;
+    }
+
+    const imgBuffer = Buffer.from(await data.arrayBuffer());
+    const canvas = await generateCanvas(imgBuffer);
+    const pixelColors = extractPixelColors(canvas);
+
+    const jsonFilePath = path.join(listsDir, imagePath.replace(/\.jpe?g$/i, '_pixel_colors.json'));
+    fs.writeFileSync(jsonFilePath, JSON.stringify(pixelColors));
+
+    return res.status(200).json({ message: 'File processed', jsonFilePath: `/lists/${imagePath.replace(/\.jpe?g$/i, '_pixel_colors.json')}` });
+  } catch (error) {
+    console.error('Error processing file:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-const upload = multer({ storage: storage }).single('image');
-
-router.post('/upload', (req, res) => {
-  upload(req, res, async (err) => {
-    if (err) {
-      console.error('Multer error:', err);
-      return res.status(500).json({ error: 'Failed to process upload' });
-    }
-
-    const file = req.file;
-    if (!file) {
-      console.error('No file uploaded');
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    const imgPath = path.join(imagesDir, file.originalname);
-
-    try {
-      const canvas = await generateCanvas(imgPath);
-      const pixelColors = extractPixelColors(canvas);
-
-      const jsonFilePath = path.join(listsDir, file.originalname.replace(/\.jpe?g$/i, '_pixel_colors.json'));
-      fs.writeFileSync(jsonFilePath, JSON.stringify(pixelColors));
-
-      return res.status(200).json({ message: 'File saved', jsonFilePath: `/lists/${file.originalname.replace(/\.jpe?g$/i, '_pixel_colors.json')}` });
-    } catch (error) {
-      console.error('Error processing file:', error);
-      return res.status(500).json({ error: 'Internal Server Error' });
-    }
-  });
-});
-
-async function generateCanvas(imagePath) {
-  const img = await loadImage(imagePath);
+async function generateCanvas(imgBuffer) {
+  const img = await loadImage(imgBuffer);
   const canvas = createCanvas(img.width, img.height);
   const ctx = canvas.getContext('2d');
   ctx.drawImage(img, 0, 0);
