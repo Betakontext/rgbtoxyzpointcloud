@@ -46,6 +46,7 @@ function loadPointCloud(jsonFilePath) {
         }
       });
 
+
       // Attach the vertices and colors to the geometry
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -59,6 +60,11 @@ function loadPointCloud(jsonFilePath) {
 
       // Create the material for the point cloud
       const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
+
+        
+      console.log('Vertices:', vertices);
+      console.log('Colors:', colors);
+
 
       // Create the point cloud and add it to the scene
       const pointCloud = new THREE.Points(geometry, material);
