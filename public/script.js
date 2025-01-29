@@ -2,8 +2,14 @@ function loadPointCloud(jsonFilePath) {
   fetch(jsonFilePath)
     .then(response => response.json())
     .then(data => {
-      if (!Array.isArray(data)) {
-        throw new Error("Expected data to be an array but got: " + typeof data);
+      let pointCloudData;
+      if (Array.isArray(data)) {
+        pointCloudData = data; // It's already an array
+      } else if (data && typeof data === 'object') {
+        pointCloudData = Object.values(data); // Convert object values to an array
+      } else {
+        console.error('Unexpected data format:', data);
+        return;
       }
 
       // Create the scene
@@ -24,7 +30,7 @@ function loadPointCloud(jsonFilePath) {
       const colors = [];
 
       // Populate the arrays with data from the JSON file
-      data.forEach((color, index) => {
+      pointCloudData.forEach((color, index) => {
         const x = ((color[0] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
         const y = ((color[1] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
         const z = ((color[2] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
