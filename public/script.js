@@ -46,6 +46,13 @@ function loadPointCloud(jsonFilePath) {
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
+      // Compute bounding sphere to avoid NaN errors
+      geometry.computeBoundingSphere();
+      if (!geometry.boundingSphere || isNaN(geometry.boundingSphere.radius)) {
+        console.error('Bounding sphere computation failed. Geometry has NaN values.');
+        return;
+      }
+
       // Create the material for the point cloud
       const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
 
