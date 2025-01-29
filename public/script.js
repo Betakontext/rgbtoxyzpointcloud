@@ -30,16 +30,20 @@ function loadPointCloud(jsonFilePath) {
       const colors = [];
 
       // Populate the arrays with data from the JSON file
-      pointCloudData.forEach((color, index) => {
+      pointCloudData.forEach((color) => {
         const x = ((color[0] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
         const y = ((color[1] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
         const z = ((color[2] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-        vertices.push(x, y, z);
 
-        const r = color[0] / 255;
-        const g = color[1] / 255;
-        const b = color[2] / 255;
-        colors.push(r, g, b);
+        // Validate that x, y, z are numbers and not NaN
+        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+          vertices.push(x, y, z);
+
+          const r = color[0] / 255;
+          const g = color[1] / 255;
+          const b = color[2] / 255;
+          colors.push(r, g, b);
+        }
       });
 
       // Attach the vertices and colors to the geometry
