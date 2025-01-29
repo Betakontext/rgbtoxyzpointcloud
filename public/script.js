@@ -2,14 +2,8 @@ function loadPointCloud(jsonFilePath) {
   fetch(jsonFilePath)
     .then(response => response.json())
     .then(data => {
-      let pointCloudData;
-      if (Array.isArray(data)) {
-        pointCloudData = data; // It's already an array
-      } else if (data && typeof data === 'object') {
-        pointCloudData = Object.values(data); // Convert object values to an array
-      } else {
-        console.error('Unexpected data format:', data);
-        return;
+      if (!Array.isArray(data)) {
+        throw new Error("Expected data to be an array but got: " + typeof data);
       }
 
       // Create the scene
@@ -24,50 +18,27 @@ function loadPointCloud(jsonFilePath) {
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.getElementById('pointcloud-container').appendChild(renderer.domElement); // Append to a specific container
 
-     createPointCloud(data) {
-        const geometry = new THREE.BufferGeometry();
-        const vertices = [];
-        const colors = [];
+      // Create geometry and arrays to hold vertices and colors
+      const geometry = new THREE.BufferGeometry();
+      const vertices = [];
+      const colors = [];
 
-        data.forEach(color => {
-            // Validate that color is an array of three numbers
-            if (Array.isArray(color) && color.length === 3) {
-                const r = color[0];
-                const g = color[1];
-                const b = color[2];
+      // Populate the arrays with data from the JSON file
+      data.forEach((color, index) => {
+        const x = ((color[0] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
+        const y = ((color[1] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
+        const z = ((color[2] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
+        vertices.push(x, y, z);
 
-                // Check if RGB values are within the valid range
-                if (this.isValidRGB(r) && this.isValidRGB(g) && this.isValidRGB(b)) {
-                    const x = ((r / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-                    const y = ((g / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-                    const z = ((b / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
+        const r = color[0] / 255;
+        const g = color[1] / 255;
+        const b = color[2] / 255;
+        colors.push(r, g, b);
+      });
 
-                    vertices.push(x, y, z);
-                    colors.push(r / 255, g / 255, b / 255);
-                } else {
-                    console.warn('Invalid RGB value:', color);
-                }
-            } else {
-                console.warn('Expected color to be an array of three numbers but got:', color);
-            }
-        });
-
-        // Only create geometry if we have valid vertices
-        if (vertices.length > 0) {
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-            const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
-            this.pointCloud = new THREE.Points(geometry, material);
-            this.scene.add(this.pointCloud);
-        } else {
-            console.error('No valid vertices to create point cloud.');
-        }
-    }
-
-    isValidRGB(value) {
-        return typeof value === 'number' && value >= 0 && value <= 255;
-    }
+      // Attach the vertices and colors to the geometry
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
       // Create the material for the point cloud
       const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
