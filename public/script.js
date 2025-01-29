@@ -141,4 +141,4 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Example usage with the path to the JSON file
-loadPointCloud('path/to/your/json/file.json');
+// loadPointCloud('path/to/your/json/file.json');
