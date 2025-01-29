@@ -2,6 +2,10 @@ function loadPointCloud(jsonFilePath) {
   fetch(jsonFilePath)
     .then(response => response.json())
     .then(data => {
+      if (!Array.isArray(data)) {
+        throw new Error("Expected data to be an array but got: " + typeof data);
+      }
+
       // Create the scene
       const scene = new THREE.Scene();
 
