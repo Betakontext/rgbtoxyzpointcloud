@@ -1,7 +1,6 @@
 // Function to generate JSON data
 function generateJson(pixelColors) {
-    const json = JSON.stringify(pixelColors);
-    return json;
+    return JSON.stringify(pixelColors);
 }
 
 // Function to store JSON data in session storage
@@ -139,6 +138,3 @@ function renderPointCloud(pointCloudData) {
 window.addEventListener('beforeunload', () => {
     sessionStorage.removeItem('pointcloudJson');
 });
-
-// Example usage with the path to the JSON file
-// loadPointCloud('path/to/your/json/file.json');
