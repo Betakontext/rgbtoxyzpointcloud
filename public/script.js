@@ -26,6 +26,24 @@ function readJson(key = 'pointcloudJson') {
     return null;
 }
 
+// Function to upload JSON data to Supabase Storage
+async function uploadJsonToSupabase(json, fileName) {
+    const response = await fetch('/api/uploadJson', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ json, fileName })
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to upload JSON: ${response.statusText}`);
+    }
+
+    const { url } = await response.json();
+    return url;
+}
+
 // Function to load the point cloud from JSON data
 async function loadPointCloud(jsonFilePath) {
     const storedPixelColors = readJson();
@@ -53,6 +71,9 @@ async function loadPointCloud(jsonFilePath) {
             // Store JSON in session storage
             const json = generateJson(pointCloudData);
             storeJson(json);
+
+            const fileName = `pointcloud-${Date.now()}.json`;
+            const jsonUrl = await uploadJsonToSupabase(json, fileName);
 
             // Load the point cloud from the stored data
             renderPointCloud(pointCloudData);
@@ -141,5 +162,5 @@ window.addEventListener('beforeunload', () => {
     sessionStorage.removeItem('pointcloudJson');
 });
 
-// Call loadPointCloud with the correct JSON file path
-loadPointCloud('https://ijcr6np3kexk3arm.public.blob.vercel-storage.com/pointcloud-RyFMPN17Hx3EPvKqy2uDgmCt6CMBSg.json'); // Update this with the correct path to your JSON file hosted on Vercel
+// Call loadPointCloud with the correct JSON file path from Supabase Storage
+loadPointCloud('/api/getJson'); // Update this with the correct path to your JSON file hosted on Supabase
