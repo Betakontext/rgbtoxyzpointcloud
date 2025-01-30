@@ -20,8 +20,12 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         if (data.message) {
           document.getElementById('message').innerText = data.message;
           const json = generateJson(data.pixelColors);
-          storeJson(json);
-          loadPointCloudFromSession(); // Load the point cloud from session storage
+          if (isValidJson(json)) {
+            storeJson(json);
+            loadPointCloudFromSession(); // Load the point cloud from session storage
+          } else {
+            console.error('Invalid JSON data:', json);
+          }
         } else {
           document.getElementById('message').innerText = 'Upload failed.';
         }
@@ -33,7 +37,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
       
       try {
         const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4MwAFohH9DHqYu1liHeXRJTLc6ZU_AMfmVXwnnCjYdg'; // Replace with your actual Supabase key;
+        const supabaseKey = 'YOUR_SUPABASE_KEY'; // Replace with your actual Supabase key
 
         const { createClient } = window.supabase;
         const supabase = createClient(supabaseUrl, supabaseKey);
@@ -55,17 +59,29 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         
         // Assuming the Supabase function returns pixelColors in the response
         const json = generateJson(data.pixelColors);
-        storeJson(json);
-        loadPointCloudFromSession(); // Load the point cloud from session storage
+        if (isValidJson(json)) {
+          storeJson(json);
+          loadPointCloudFromSession(); // Load the point cloud from session storage
+        } else {
+          console.error('Invalid JSON data:', json);
+        }
       } catch (supabaseError) {
         console.error('Error uploading file:', supabaseError);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('message').innerText = 'Error uploading file.';
       }
     }
-
     document.getElementById('loading').style.display = 'block';
   } else {
     alert('Please upload a valid JPEG image within 3 MB.');
   }
 });
+
+function isValidJson(json) {
+  try {
+    JSON.parse(json);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
