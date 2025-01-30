@@ -3,24 +3,11 @@ function generateJson(pixelColors) {
     return JSON.stringify(pixelColors);
 }
 
-// Function to store JSON data in session storage
-function storeJson(json, key = 'pointcloudJson') {
-    try {
-        sessionStorage.setItem(key, json);
-    } catch (e) {
-        console.error('Error storing JSON:', e);
-    }
-}
-
 // Function to compress JSON data
 function compressJson(json) {
     return LZString.compressToUTF16(json);
 }
 
-// Function to decompress JSON data
-function decompressJson(compressedJson) {
-    return LZString.decompressFromUTF16(compressedJson);
-}
 
 // Function to store compressed JSON data in session storage
 function storeJson(json, key = 'pointcloudJson') {
@@ -46,19 +33,6 @@ function readJson(key = 'pointcloudJson') {
     return null;
 }
 
-// Function to read JSON data from session storage
-function readJson(key = 'pointcloudJson') {
-    const json = sessionStorage.getItem(key);
-    if (json) {
-        try {
-            return JSON.parse(json);
-        } catch (e) {
-            console.error('Error parsing JSON:', e);
-            return null;
-        }
-    }
-    return null;
-}
 
 // Function to render the point cloud
 function renderPointCloud(pointCloudData) {
