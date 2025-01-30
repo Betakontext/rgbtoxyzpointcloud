@@ -26,64 +26,6 @@ function readJson(key = 'pointcloudJson') {
     return null;
 }
 
-// Function to upload JSON data to Supabase Storage
-async function uploadJsonToSupabase(json, fileName) {
-    const response = await fetch('/api/uploadJson', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ json, fileName })
-    });
-
-    if (!response.ok) {
-        throw new Error(`Failed to upload JSON: ${response.statusText}`);
-    }
-
-    const { url } = await response.json();
-    return url;
-}
-
-// Function to load the point cloud from JSON data
-async function loadPointCloud(jsonFilePath) {
-    const storedPixelColors = readJson();
-
-    if (storedPixelColors) {
-        renderPointCloud(storedPixelColors);
-    } else {
-        try {
-            const response = await fetch(jsonFilePath);
-            if (!response.ok) {
-                throw new Error(`Network response was not ok: ${response.statusText}`);
-            }
-            const data = await response.json();
-
-            let pointCloudData;
-            if (Array.isArray(data)) {
-                pointCloudData = data; // It's already an array
-            } else if (data && typeof data === 'object') {
-                pointCloudData = Object.values(data); // Convert object values to an array
-            } else {
-                console.error('Unexpected data format:', data);
-                return;
-            }
-
-            // Store JSON in session storage
-            const json = generateJson(pointCloudData);
-            storeJson(json);
-
-            const fileName = `pointcloud-${Date.now()}.json`;
-            const jsonUrl = await uploadJsonToSupabase(json, fileName);
-
-            // Load the point cloud from the stored data
-            renderPointCloud(pointCloudData);
-
-        } catch (error) {
-            console.error('Error loading JSON:', error);
-        }
-    }
-}
-
 // Function to render the point cloud
 function renderPointCloud(pointCloudData) {
     // Create the scene
@@ -162,5 +104,24 @@ window.addEventListener('beforeunload', () => {
     sessionStorage.removeItem('pointcloudJson');
 });
 
-// Call loadPointCloud with the correct JSON file path from Supabase Storage
-loadPointCloud('https://unkpdsecvopwhxjodmag.supabase.co/storage/v1/object/sign/images/public/pointcloud.json?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvcHVibGljL3BvaW50Y2xvdWQuanNvbiIsImlhdCI6MTczODIwMDA2NCwiZXhwIjoxNzY5NzM2MDY0fQ.S16-aISR4L0-UQahot8a8PakGe1OIdQdnXqrHpuJn_M'); // Update this with the correct path to your JSON file hosted on Supabase
+// Function to load the point cloud from session storage
+function loadPointCloudFromSession() {
+    const storedPixelColors = readJson();
+    if (storedPixelColors) {
+        renderPointCloud(storedPixelColors);
+    } else {
+        console.error('No point cloud data found in session storage.');
+    }
+}
+
+// Example usage: Generate and store the JSON data
+const examplePixelColors = [
+    [255, 0, 0],
+    [0, 255, 0],
+    [0, 0, 255]
+];
+const json = generateJson(examplePixelColors);
+storeJson(json);
+
+// Load the point cloud from the stored JSON data
+loadPointCloudFromSession();
