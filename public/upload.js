@@ -17,7 +17,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
       if (response.ok) {
         const data = await response.json();
         document.getElementById('loading').style.display = 'none';
-        if (data.message) {
+        if (data.message && data.pixelColors) {
           document.getElementById('message').innerText = data.message;
           const json = generateJson(data.pixelColors);
           if (isValidJson(json)) {
@@ -28,6 +28,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
           }
         } else {
           document.getElementById('message').innerText = 'Upload failed.';
+          console.error('Upload failed: Missing pixelColors in response data.');
         }
       } else {
         throw new Error('Local server upload failed');
@@ -58,12 +59,16 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         document.getElementById('message').innerText = 'Upload successful.';
         
         // Assuming the Supabase function returns pixelColors in the response
-        const json = generateJson(data.pixelColors);
-        if (isValidJson(json)) {
-          storeJson(json);
-          loadPointCloudFromSession(); // Load the point cloud from session storage
+        if (data && data.pixelColors) {
+          const json = generateJson(data.pixelColors);
+          if (isValidJson(json)) {
+            storeJson(json);
+            loadPointCloudFromSession(); // Load the point cloud from session storage
+          } else {
+            console.error('Invalid JSON data:', json);
+          }
         } else {
-          console.error('Invalid JSON data:', json);
+          console.error('Upload to Supabase failed: Missing pixelColors in response data.');
         }
       } catch (supabaseError) {
         console.error('Error uploading file:', supabaseError);
