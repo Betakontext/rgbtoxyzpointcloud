@@ -152,7 +152,12 @@ function extractPixelColors(imageBitmap) {
 async function processImage(imageUrl) {
     try {
         console.log(imageUrl);
-        const response = await fetch(imageUrl);
+        const response = await fetch(imageUrl, {
+            mode: 'cors',
+            headers: {
+                'Access-Control-Allow-Origin': '*'
+            }
+        });
         if (!response.ok) {
             throw new Error(`Network response was not ok: ${response.statusText}`);
         }
