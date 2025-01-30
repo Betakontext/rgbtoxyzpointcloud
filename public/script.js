@@ -114,6 +114,28 @@ function loadPointCloudFromSession() {
     }
 }
 
+// Function to process the uploaded image
+async function processImage(imageUrl) {
+    try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const imageBitmap = await createImageBitmap(blob);
+
+        // Assuming you have a function to extract pixel colors from the image
+        const pixelColors = extractPixelColors(imageBitmap);
+
+        const json = generateJson(pixelColors);
+        if (isValidJson(json)) {
+            storeJson(json);
+            loadPointCloudFromSession(); // Load the point cloud from session storage
+        } else {
+            console.error('Invalid JSON data:', json);
+        }
+    } catch (error) {
+        console.error('Error processing image:', error);
+    }
+}
+
 // Example usage: Generate and store the JSON data
 const examplePixelColors = [
     [255, 0, 0],
