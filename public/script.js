@@ -164,18 +164,16 @@ async function processImage(imageUrl) {
         const blob = await response.blob();
         const imageBitmap = await createImageBitmap(blob);
 
-        // Ensure the imageBitmap is correctly created
         if (!imageBitmap) {
             throw new Error('Failed to create image bitmap');
         }
 
-        // Assuming you have a function to extract pixel colors from the image
         const pixelColors = extractPixelColors(imageBitmap);
 
         const json = generateJson(pixelColors);
         if (isValidJson(json)) {
             storeJson(json);
-            loadPointCloudFromSession(); // Load the point cloud from session storage
+            loadPointCloudFromSession();
         } else {
             console.error('Invalid JSON data:', json);
         }
