@@ -9,7 +9,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
 
         // Function to store image locally
         async function storeImageLocally(file) {
-            const folder = "/Bilder";
+            const folder = "../Bilder";
             const filePath = `${folder}/${file.name}`;
 
             try {
@@ -56,7 +56,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
             let fileUrl;
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 await storeImageLocally(file);
-                fileUrl = `/Bilder/${file.name}`;
+                fileUrl = `../Bilder/${file.name}`;
             } else if (navigator.onLine) {
                 fileUrl = await uploadImageToSupabase(file);
             } else {
