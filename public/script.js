@@ -161,12 +161,12 @@ function extractPixelColors(imageBitmap) {
 }
 
 // Function to process the uploaded image
-async function processImage(imageUrl) {
+async function processImage(imageUrl, isLocal = false) {
     try {
         console.log(imageUrl);
         const response = await fetch(imageUrl, {
-            mode: 'cors',
-            headers: {
+            mode: isLocal ? 'no-cors' : 'cors', // Use 'no-cors' for local files
+            headers: isLocal ? {} : {
                 'Access-Control-Allow-Origin': '*'
             }
         });
@@ -191,6 +191,22 @@ async function processImage(imageUrl) {
         }
     } catch (error) {
         console.error('Error processing image:', error);
+    }
+}
+
+// Function to determine if running on a local server
+function isLocalServer() {
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
+async function loadPointCloud(imageUrl) {
+    if (isLocalServer()) {
+        // Use the local picture in /Bilder
+        const localImageUrl = `/Bilder/${imageUrl}`;
+        await processImage(localImageUrl);
+    } else {
+        // Use the uploaded picture from Supabase
+        await processImage(imageUrl);
     }
 }
 

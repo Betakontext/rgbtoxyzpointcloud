@@ -12,7 +12,7 @@ const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4MwAFohH9DHqYu1liHeXRJTLc6ZU_AMfmVXwnnCjYdg';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const imagesDir = path.join(__dirname, '../Bilder');
+const listsDir = path.join(__dirname, '../lists');
 
 if (!fs.existsSync(listsDir)) {
   fs.mkdirSync(listsDir, { recursive: true });

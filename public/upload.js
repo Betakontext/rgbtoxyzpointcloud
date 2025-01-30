@@ -7,72 +7,85 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         const formData = new FormData();
         formData.append('image', file);
 
-        // Function to store image locally
-        async function storeImageLocally(file) {
-            const folder = "../Bilder";
-            const filePath = `${folder}/${file.name}`;
-
-            try {
-                // Use a more compatible method for storing files locally
-                const response = await fetch('../Bilder', {
-                    method: 'POST',
-                    body: formData
-                });
-                if (!response.ok) throw new Error('Failed to store image locally');
-                console.log('Image stored locally:', filePath);
-            } catch (error) {
-                console.error('Error storing image locally:', error);
-            }
-        }
-
-        // Function to upload image to Supabase
-        async function uploadImageToSupabase(file) {
-            try {
-                const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4MwAFohH9DHqYu1liHeXRJTLc6ZU_AMfmVXwnnCjYdg';
-                const { createClient } = window.supabase;
-                const supabase = createClient(supabaseUrl, supabaseKey);
-
-                const { data, error } = await supabase.storage
-                    .from('images')
-                    .upload(`public/${file.name}`, file);
-
-                if (error) throw error;
-
-                const { signedURL, error: signedUrlError } = await supabase.storage
-                    .from('images')
-                    .createSignedUrl(`public/${file.name}`, 60 * 60); // URL expires in 1 hour
-
-                if (signedUrlError) throw signedUrlError;
-
-                console.log('Image uploaded to Supabase:', data);
-                return signedURL;
-            } catch (e) {
-                console.error('Error uploading image to Supabase:', e);
-            }
-        }
+        document.getElementById('loading').style.display = 'block';
 
         try {
-            let fileUrl;
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                await storeImageLocally(file);
-                fileUrl = `../Bilder/${file.name}`;
-            } else if (navigator.onLine) {
-                fileUrl = await uploadImageToSupabase(file);
+            // Check if local server is running
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('loading').style.display = 'none';
+                if (data.message) {
+                    document.getElementById('message').innerText = data.message;
+                    processImage(data.jsonFilePath, true); // Call processImage with the JSON file path and isLocal flag
+                } else {
+                    document.getElementById('message').innerText = 'Upload failed.';
+                }
             } else {
-                throw new Error('App is offline and not running on a local server.');
+                throw new Error('Local server upload failed');
+            }
+        } catch (error) {
+            console.log('Local server not running, trying Supabase');
+
+            // Function to store image locally
+            async function storeImageLocally(file) {
+                const folder = "../Bilder";
+                const filePath = `${folder}/${file.name}`;
+                // Implementation to store file to the local file system
             }
 
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('message').innerText = 'Upload successful.';
+            // Function to upload image to Supabase
+            async function uploadImageToSupabase(file) {
+                try {
+                    const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
+                    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvcHVibGljLy01MjA4OTExNDI2MjM0NzI5ODk4XzEyMS5qcGciLCJpYXQiOjE3MzgyMjY1OTMsImV4cCI6MTc0MDgxODU5M30.vnGpdBpbw0pynqU0WsKmzCglENLF7_EVUCKsh1LK7Q8';
+                    const { createClient } = window.supabase;
+                    const supabase = createClient(supabaseUrl, supabaseKey);
 
-            processImage(fileUrl);
-        } catch (error) {
-            console.error('Error uploading file:', error);
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('message').innerText = 'Error uploading file.';
+                    const { data, error } = await supabase.storage
+                        .from('images')
+                        .upload(`public/${file.name}`, file);
+
+                    if (error) throw error;
+
+                    const { signedURL, error: signedUrlError } = await supabase.storage
+                        .from('images')
+                        .createSignedUrl(`public/${file.name}`, 60 * 60); // URL expires in 1 hour
+
+                    if (signedUrlError) throw signedUrlError;
+
+                    console.log('Image uploaded to Supabase:', data);
+                    return signedURL;
+                } catch (e) {
+                    console.error('Error uploading image to Supabase:', e);
+                }
+            }
+
+            try {
+                let fileUrl;
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    await storeImageLocally(file);
+                    fileUrl = `../Bilder/${file.name}`;
+                    processImage(fileUrl, true); // Call processImage with the local file URL and isLocal flag
+                } else if (navigator.onLine) {
+                    fileUrl = await uploadImageToSupabase(file);
+                    processImage(fileUrl); // Call processImage with the Supabase file URL
+                } else {
+                    throw new Error('App is offline and not running on a local server.');
+                }
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('message').innerText = 'Upload successful.';
+            } catch (supabaseError) {
+                console.error('Error uploading file:', supabaseError);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('message').innerText = 'Error uploading file.';
+            }
         }
-        document.getElementById('loading').style.display = 'block';
     } else {
         alert('Please upload a valid JPEG image within 3 MB.');
     }
