@@ -3,10 +3,21 @@ function generateJson(pixelColors) {
     return JSON.stringify(pixelColors);
 }
 
+// Function to compress JSON data
+function compressJson(json) {
+    return LZString.compressToUTF16(json);
+}
+
+// Function to decompress JSON data
+function decompressJson(compressedJson) {
+    return LZString.decompressFromUTF16(compressedJson);
+}
+
 // Function to store JSON data in session storage
 function storeJson(json, key = 'pointcloudJson') {
     try {
-        sessionStorage.setItem(key, json);
+        const compressedJson = compressJson(json);
+        sessionStorage.setItem(key, compressedJson);
     } catch (e) {
         console.error('Error storing JSON:', e);
     }
@@ -14,9 +25,10 @@ function storeJson(json, key = 'pointcloudJson') {
 
 // Function to read JSON data from session storage
 function readJson(key = 'pointcloudJson') {
-    const json = sessionStorage.getItem(key);
-    if (json) {
+    const compressedJson = sessionStorage.getItem(key);
+    if (compressedJson) {
         try {
+            const json = decompressJson(compressedJson);
             return JSON.parse(json);
         } catch (e) {
             console.error('Error parsing JSON:', e);
@@ -193,3 +205,7 @@ storeJson(json);
 
 // Load the point cloud from the stored JSON data
 loadPointCloudFromSession();
+
+// Include the LZString library for compression/decompression
+// You need to add the LZString library in your HTML file
+// <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
