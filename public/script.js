@@ -115,6 +115,17 @@ function loadPointCloudFromSession() {
     }
 }
 
+// Function to check if a string is valid JSON
+function isValidJson(json) {
+    try {
+        JSON.parse(json);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+
 // Function to extract pixel colors from an image bitmap
 function extractPixelColors(imageBitmap) {
     const canvas = document.createElement('canvas');
