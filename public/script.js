@@ -163,4 +163,4 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Call loadPointCloud with the correct JSON file path from Supabase Storage
-loadPointCloud('/api/getJson'); // Update this with the correct path to your JSON file hosted on Supabase
+loadPointCloud('https://unkpdsecvopwhxjodmag.supabase.co/storage/v1/object/sign/images/public/pointcloud.json?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvcHVibGljL3BvaW50Y2xvdWQuanNvbiIsImlhdCI6MTczODIwMDA2NCwiZXhwIjoxNzY5NzM2MDY0fQ.S16-aISR4L0-UQahot8a8PakGe1OIdQdnXqrHpuJn_M'); // Update this with the correct path to your JSON file hosted on Supabase
