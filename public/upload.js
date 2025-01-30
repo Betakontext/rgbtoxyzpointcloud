@@ -18,7 +18,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         async function uploadImageToSupabase(file) {
             try {
                 const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4MwAFohH9DHqYu1liHeXRJTLc6ZU_AMfmVXwnnCjYdg';
+                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvcHVibGljLy01MjA4OTExNDI2MjM0NzI5ODk4XzEyMS5qcGciLCJpYXQiOjE3MzgyMjY1OTMsImV4cCI6MTc0MDgxODU5M30.vnGpdBpbw0pynqU0WsKmzCglENLF7_EVUCKsh1LK7Q8';
                 const { createClient } = window.supabase;
                 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -27,25 +27,32 @@ document.getElementById('fileInput').addEventListener('change', async function(e
                     .upload(`public/${file.name}`, file);
 
                 if (error) throw error;
+
+                const { signedURL, error: signedUrlError } = await supabase.storage
+                    .from('images')
+                    .createSignedUrl(`public/${file.name}`, 60 * 60); // URL expires in 1 hour
+
+                if (signedUrlError) throw signedUrlError;
+
                 console.log('Image uploaded to Supabase:', data);
+                return signedURL;
             } catch (e) {
                 console.error('Error uploading image to Supabase:', e);
             }
         }
 
         try {
-            // Conditionally use local folders or Supabase for image uploads
+            let fileUrl;
             if (navigator.onLine) {
-                await uploadImageToSupabase(file);
+                fileUrl = await uploadImageToSupabase(file);
             } else {
                 await storeImageLocally(file);
+                fileUrl = `/${navigator.onLine ? "lists" : "Bilder"}/${file.name}`;
             }
 
             document.getElementById('loading').style.display = 'none';
             document.getElementById('message').innerText = 'Upload successful.';
 
-            // Pass the file URL to the script.js for processing
-            const fileUrl = navigator.onLine ? `https://your-supabase-url/storage/v1/object/public/images/${file.name}` : `/${folder}/${file.name}`;
             processImage(fileUrl);
         } catch (error) {
             console.error('Error uploading file:', error);
