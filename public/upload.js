@@ -13,9 +13,10 @@ document.getElementById('fileInput').addEventListener('change', async function(e
             const filePath = `${folder}/${file.name}`;
 
             try {
-                const response = await fetch(filePath, {
-                    method: 'PUT',
-                    body: file
+                // Use a more compatible method for storing files locally
+                const response = await fetch('/save-local', {
+                    method: 'POST',
+                    body: formData
                 });
                 if (!response.ok) throw new Error('Failed to store image locally');
                 console.log('Image stored locally:', filePath);
