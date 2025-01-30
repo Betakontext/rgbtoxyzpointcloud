@@ -26,38 +26,72 @@ function readJson(key = 'pointcloudJson') {
     return null;
 }
 
+// Function to upload JSON data to Supabase
+async function uploadJsonToSupabase(json, fileName) {
+    const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4M[...]';
+    const { createClient } = window.supabase;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const blob = new Blob([json], { type: 'application/json' });
+    const { data, error } = await supabase.storage
+        .from('images')
+        .upload(`public/${fileName}`, blob);
+
+    if (error) {
+        throw error;
+    }
+
+    const { publicURL } = supabase.storage
+        .from('images')
+        .getPublicUrl(`public/${fileName}`);
+
+    return publicURL;
+}
+
 // Function to load the point cloud from JSON data
-function loadPointCloud(jsonFilePath) {
+async function loadPointCloud(jsonFilePath) {
     const storedPixelColors = readJson();
 
     if (storedPixelColors) {
         renderPointCloud(storedPixelColors);
     } else {
-        fetch(jsonFilePath)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Network response was not ok: ${response.statusText}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                let pointCloudData;
-                if (Array.isArray(data)) {
-                    pointCloudData = data; // It's already an array
-                } else if (data && typeof data === 'object') {
-                    pointCloudData = Object.values(data); // Convert object values to an array
-                } else {
-                    console.error('Unexpected data format:', data);
-                    return;
-                }
+        try {
+            const response = await fetch(jsonFilePath);
+            if (!response.ok) {
+                throw new Error(`Network response was not ok: ${response.statusText}`);
+            }
+            const data = await response.json();
 
-                // Store JSON in session storage
-                const json = generateJson(pointCloudData);
-                storeJson(json);
+            let pointCloudData;
+            if (Array.isArray(data)) {
+                pointCloudData = data; // It's already an array
+            } else if (data && typeof data === 'object') {
+                pointCloudData = Object.values(data); // Convert object values to an array
+            } else {
+                console.error('Unexpected data format:', data);
+                return;
+            }
 
-                renderPointCloud(pointCloudData);
-            })
-            .catch(error => console.error('Error loading JSON:', error));
+            // Store JSON in session storage
+            const json = generateJson(pointCloudData);
+            storeJson(json);
+
+            // Upload JSON to Supabase and get the public URL
+            const fileName = 'pointcloud.json';
+            const jsonUrl = await uploadJsonToSupabase(json, fileName);
+
+            // Load the point cloud from the public URL
+            renderPointCloud(pointCloudData);
+
+            // Delete the JSON file from Supabase after usage (optional)
+            await supabase.storage
+                .from('images')
+                .remove([`public/${fileName}`]);
+
+        } catch (error) {
+            console.error('Error loading JSON:', error);
+        }
     }
 }
 
@@ -140,4 +174,4 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Call loadPointCloud with the correct JSON file path from Supabase
-loadPointCloud('https://unkpdsecvopwhxjodmag.supabase.co/storage/images/lists/pointcloud.json');
+loadPointCloud('https://unkpdsecvopwhxjodmag.supabase.co/storage/v1/object/public/images/pointcloud.json');
