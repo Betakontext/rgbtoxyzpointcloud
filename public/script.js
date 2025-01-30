@@ -142,4 +142,4 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Call loadPointCloud with the correct JSON file path
-loadPointCloud('lists/pointcloud.json'); // Update this with the correct local path to your JSON file
+loadPointCloud('https://ijcr6np3kexk3arm.public.blob.vercel-storage.com/pointcloud-RyFMPN17Hx3EPvKqy2uDgmCt6CMBSg.json'); // Update this with the correct path to your JSON file hosted on Vercel
