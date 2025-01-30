@@ -164,17 +164,38 @@ function extractPixelColors(imageBitmap) {
 async function processImage(imageUrl, isLocal = false) {
     try {
         console.log(imageUrl);
-        const response = await fetch(imageUrl, {
-            mode: isLocal ? 'no-cors' : 'cors', // Use 'no-cors' for local files
-            headers: isLocal ? {} : {
-                'Access-Control-Allow-Origin': '*'
+        let imageBitmap;
+
+        if (isLocal) {
+            // Load local image using FileReader
+            const response = await fetch(imageUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            imageBitmap = await new Promise((resolve, reject) => {
+                reader.onloadend = () => {
+                    const img = new Image();
+                    img.src = reader.result;
+                    img.onload = async () => {
+                        resolve(await createImageBitmap(img));
+                    };
+                    img.onerror = reject;
+                };
+                reader.onerror = reject;
+            });
+        } else {
+            const response = await fetch(imageUrl, {
+                mode: 'cors',
+                headers: {
+                    'Access-Control-Allow-Origin': '*'
+                }
+            });
+            if (!response.ok) {
+                throw new Error(`Network response was not ok: ${response.statusText}`);
             }
-        });
-        if (!response.ok) {
-            throw new Error(`Network response was not ok: ${response.statusText}`);
+            const blob = await response.blob();
+            imageBitmap = await createImageBitmap(blob);
         }
-        const blob = await response.blob();
-        const imageBitmap = await createImageBitmap(blob);
 
         if (!imageBitmap) {
             throw new Error('Failed to create image bitmap');
@@ -194,21 +215,24 @@ async function processImage(imageUrl, isLocal = false) {
     }
 }
 
-// Function to determine if running on a local server
-function isLocalServer() {
-    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-}
-
 async function loadPointCloud(imageUrl) {
     if (isLocalServer()) {
         // Use the local picture in /Bilder
         const localImageUrl = `/Bilder/${imageUrl}`;
-        await processImage(localImageUrl);
+        await processImage(localImageUrl, true);
     } else {
         // Use the uploaded picture from Supabase
         await processImage(imageUrl);
     }
 }
+
+// Function to determine if running on a local server
+function isLocalServer() {
+    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
+
+
+
 
 // Example usage: Generate and store the JSON data
 const examplePixelColors = [
