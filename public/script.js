@@ -115,6 +115,30 @@ function loadPointCloudFromSession() {
     }
 }
 
+// Function to extract pixel colors from an image bitmap
+function extractPixelColors(imageBitmap) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    
+    canvas.width = imageBitmap.width;
+    canvas.height = imageBitmap.height;
+    
+    context.drawImage(imageBitmap, 0, 0);
+    
+    const imageData = context.getImageData(0, 0, imageBitmap.width, imageBitmap.height);
+    const data = imageData.data;
+    
+    const pixelColors = [];
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i+1];
+        const b = data[i+2];
+        pixelColors.push([r, g, b]);
+    }
+    
+    return pixelColors;
+}
+
 // Function to process the uploaded image
 async function processImage(imageUrl) {
     try {
