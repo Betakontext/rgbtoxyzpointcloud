@@ -118,8 +118,16 @@ function loadPointCloudFromSession() {
 async function processImage(imageUrl) {
     try {
         const response = await fetch(imageUrl);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
         const blob = await response.blob();
         const imageBitmap = await createImageBitmap(blob);
+        
+        // Ensure the imageBitmap is correctly created
+        if (!imageBitmap) {
+            throw new Error('Failed to create image bitmap');
+        }
 
         // Assuming you have a function to extract pixel colors from the image
         const pixelColors = extractPixelColors(imageBitmap);
