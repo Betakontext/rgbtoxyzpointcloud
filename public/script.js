@@ -29,7 +29,7 @@ function readJson(key = 'pointcloudJson') {
 // Function to upload JSON data to Supabase
 async function uploadJsonToSupabase(json, fileName) {
     const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4M[...]';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4M[...]
     const { createClient } = window.supabase;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
