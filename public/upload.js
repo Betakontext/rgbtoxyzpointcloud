@@ -9,16 +9,26 @@ document.getElementById('fileInput').addEventListener('change', async function(e
 
         // Function to store image locally
         async function storeImageLocally(file) {
-            const folder = navigator.onLine ? "/lists" : "/Bilder";
+            const folder = "Bilder";
             const filePath = `${folder}/${file.name}`;
-            // Implementation to store file to the local file system
+
+            try {
+                const response = await fetch(filePath, {
+                    method: 'PUT',
+                    body: file
+                });
+                if (!response.ok) throw new Error('Failed to store image locally');
+                console.log('Image stored locally:', filePath);
+            } catch (error) {
+                console.error('Error storing image locally:', error);
+            }
         }
 
         // Function to upload image to Supabase
         async function uploadImageToSupabase(file) {
             try {
                 const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvcHVibGljLy01MjA4OTExNDI2MjM0NzI5ODk4XzEyMS5qcGciLCJpYXQiOjE3MzgyMjY1OTMsImV4cCI6MTc0MDgxODU5M30.vnGpdBpbw0pynqU0WsKmzCglENLF7_EVUCKsh1LK7Q8';
+                const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4MwAFohH9DHqYu1liHeXRJTLc6ZU_AMfmVXwnnCjYdg';
                 const { createClient } = window.supabase;
                 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -47,7 +57,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
                 fileUrl = await uploadImageToSupabase(file);
             } else {
                 await storeImageLocally(file);
-                fileUrl = `/${navigator.onLine ? "lists" : "Bilder"}/${file.name}`;
+                fileUrl = `/Bilder/${file.name}`;
             }
 
             document.getElementById('loading').style.display = 'none';
