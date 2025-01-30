@@ -12,6 +12,39 @@ function storeJson(json, key = 'pointcloudJson') {
     }
 }
 
+// Function to compress JSON data
+function compressJson(json) {
+    return LZString.compressToUTF16(json);
+}
+
+// Function to decompress JSON data
+function decompressJson(compressedJson) {
+    return LZString.decompressFromUTF16(compressedJson);
+}
+
+// Function to store compressed JSON data in session storage
+function storeJson(json, key = 'pointcloudJson') {
+    try {
+        const compressedJson = compressJson(json);
+        sessionStorage.setItem(key, compressedJson);
+    } catch (e) {
+        console.error('Error storing JSON:', e);
+    }
+}
+
+// Function to read and decompress JSON data from session storage
+function readJson(key = 'pointcloudJson') {
+    const compressedJson = sessionStorage.getItem(key);
+    if (compressedJson) {
+        try {
+            return JSON.parse(decompressJson(compressedJson));
+        } catch (e) {
+            console.error('Error parsing JSON:', e);
+            return null;
+        }
+    }
+    return null;
+}
 
 // Function to read JSON data from session storage
 function readJson(key = 'pointcloudJson') {
