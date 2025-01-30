@@ -9,12 +9,12 @@ document.getElementById('fileInput').addEventListener('change', async function(e
 
         // Function to store image locally
         async function storeImageLocally(file) {
-            const folder = "/Bilder";
+            const folder = "../Bilder";
             const filePath = `${folder}/${file.name}`;
 
             try {
                 // Use a more compatible method for storing files locally
-                const response = await fetch('/save-local', {
+                const response = await fetch('../Bilder', {
                     method: 'POST',
                     body: formData
                 });
