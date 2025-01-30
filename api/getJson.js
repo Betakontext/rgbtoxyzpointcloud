@@ -8,7 +8,7 @@ export default async (req, res) => {
     const fileName = 'pointcloud-RyFMPN17Hx3EPvKqy2uDgmCt6CMBSg.json'; // Update this with the correct file name
 
     try {
-        const { data, error } = await supabase.storage.from('your-bucket-name').download(fileName);
+        const { data, error } = await supabase.storage.from('images').download(fileName);
 
         if (error) {
             throw error;
