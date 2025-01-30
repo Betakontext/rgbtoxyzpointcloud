@@ -142,4 +142,4 @@ window.addEventListener('beforeunload', () => {
 });
 
 // Call loadPointCloud with the correct JSON file path
-loadPointCloud('path/to/your/local/pointcloud.json'); // Update this with the correct local path to your JSON file
+loadPointCloud('lists/pointcloud.json'); // Update this with the correct local path to your JSON file
