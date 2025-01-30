@@ -12,6 +12,7 @@ function storeJson(json, key = 'pointcloudJson') {
     }
 }
 
+
 // Function to read JSON data from session storage
 function readJson(key = 'pointcloudJson') {
     const json = sessionStorage.getItem(key);
@@ -117,6 +118,7 @@ function loadPointCloudFromSession() {
 // Function to process the uploaded image
 async function processImage(imageUrl) {
     try {
+        console.log(imageUrl)
         const response = await fetch(imageUrl);
         if (!response.ok) {
             throw new Error(`Network response was not ok: ${response.statusText}`);
