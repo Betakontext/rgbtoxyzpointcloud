@@ -26,29 +26,6 @@ function readJson(key = 'pointcloudJson') {
     return null;
 }
 
-// Function to upload JSON data to Supabase
-async function uploadJsonToSupabase(json, fileName) {
-    const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4MwAFohH9DHqYu1liHeXRJTLc6ZU_AMfmVXwnnCjYdg';
-    const { createClient } = window.supabase;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    const blob = new Blob([json], { type: 'application/json' });
-    const { data, error } = await supabase.storage
-        .from('images')
-        .upload(`public/${fileName}`, blob);
-
-    if (error) {
-        throw error;
-    }
-
-    const { publicURL } = supabase.storage
-        .from('images')
-        .getPublicUrl(`public/${fileName}`);
-
-    return publicURL;
-}
-
 // Function to load the point cloud from JSON data
 async function loadPointCloud(jsonFilePath) {
     const storedPixelColors = readJson();
@@ -77,17 +54,8 @@ async function loadPointCloud(jsonFilePath) {
             const json = generateJson(pointCloudData);
             storeJson(json);
 
-            // Upload JSON to Supabase and get the public URL
-            const fileName = 'pointcloud.json';
-            const jsonUrl = await uploadJsonToSupabase(json, fileName);
-
-            // Load the point cloud from the public URL
+            // Load the point cloud from the stored data
             renderPointCloud(pointCloudData);
-
-            // Delete the JSON file from Supabase after usage (optional)
-            await supabase.storage
-                .from('images')
-                .remove([`public/${fileName}`]);
 
         } catch (error) {
             console.error('Error loading JSON:', error);
@@ -173,5 +141,5 @@ window.addEventListener('beforeunload', () => {
     sessionStorage.removeItem('pointcloudJson');
 });
 
-// Call loadPointCloud with the correct JSON file path from Supabase
-loadPointCloud('https://unkpdsecvopwhxjodmag.supabase.co/storage/v1/object/public/images/pointcloud.json');
+// Call loadPointCloud with the correct JSON file path
+loadPointCloud('path/to/your/local/pointcloud.json'); // Update this with the correct local path to your JSON file
