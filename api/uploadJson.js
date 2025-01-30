@@ -9,7 +9,7 @@ export default async (req, res) => {
         const { json, fileName } = req.body;
 
         try {
-            const { data, error } = await supabase.storage.from('your-bucket-name').upload(fileName, json, {
+            const { data, error } = await supabase.storage.from('images').upload(fileName, json, {
                 contentType: 'application/json'
             });
 
@@ -17,7 +17,7 @@ export default async (req, res) => {
                 throw error;
             }
 
-            const { publicURL } = supabase.storage.from('your-bucket-name').getPublicUrl(fileName);
+            const { publicURL } = supabase.storage.from('images').getPublicUrl(fileName);
             res.status(200).json({ url: publicURL });
         } catch (error) {
             res.status(500).json({ error: error.message });
