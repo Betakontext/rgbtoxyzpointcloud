@@ -45,3 +45,4 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         alert('Please upload a valid JPEG image within 3 MB.');
     }
 });
+
