@@ -18,7 +18,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
 
         try {
             const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-            const supabaseKey = 'YOUR_SUPABASE_KEY_HERE';
+            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvcHVibGljLy01MjA4OTExNDI2MjM0NzI5ODk4XzEyMS5qcGciLCJpYXQiOjE3MzgyMjY1OTMsImV4cCI6MTc0MDgxODU5M30.vnGpdBpbw0pynqU0WsKmzCglENLF7_EVUCKsh1LK7Q8';
             const { createClient } = window.supabase;
             const supabase = createClient(supabaseUrl, supabaseKey);
 
