@@ -126,6 +126,7 @@ function loadPointCloudFromSession() {
     }
 }
 
+
 // Function to check if a string is valid JSON
 function isValidJson(json) {
     try {
@@ -232,16 +233,6 @@ function isLocalServer() {
 }
 
 
-
-
-// Example usage: Generate and store the JSON data
-const examplePixelColors = [
-    [255, 0, 0],
-    [0, 255, 0],
-    [0, 0, 255]
-];
-const json = generateJson(examplePixelColors);
-storeJson(json);
 
 // Load the point cloud from the stored JSON data
 loadPointCloudFromSession();
