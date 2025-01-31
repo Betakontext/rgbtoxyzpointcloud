@@ -231,9 +231,6 @@ function isLocalServer() {
     return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 }
 
-
-
-
 // Example usage: Generate and store the JSON data
 const examplePixelColors = [
     [255, 0, 0],
