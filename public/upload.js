@@ -4,6 +4,9 @@ document.getElementById('fileInput').addEventListener('change', async function(e
     const maxSizeInBytes = 3 * 1024 * 1024; // 3 MB
 
     if (file && validFileTypes.includes(file.type) && file.size <= maxSizeInBytes) {
+        // Clear session storage before starting a new upload
+        sessionStorage.removeItem('pointcloudJson');
+
         const formData = new FormData();
 
         // Generate a new filename with date and time
