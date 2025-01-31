@@ -163,12 +163,13 @@ function extractPixelColors(imageBitmap) {
 
 // Function to process the uploaded image
 async function processImage(imageUrl, isLocal = false) {
-      // Clear the previous point cloud from the scene
-    const container = document.getElementById('pointcloud-container');
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-        
     try {
+        // Clear previous point cloud
+        const container = document.getElementById('pointcloud-container');
+        while (container.firstChild) {
+            container.removeChild(container.firstChild);
+        }
+
         console.log(imageUrl);
         let imageBitmap;
 
