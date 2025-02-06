@@ -16,7 +16,7 @@ In this version the *.json lists of the extracted coordinates are stored in the 
 
 ------------------
 
--> local Version in folder /local <-
+-> local Version for Linux in folder /local <-
 
 After download and unzip the project you can test it offline via terminal using a local server.
 
