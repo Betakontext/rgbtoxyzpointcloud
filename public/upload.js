@@ -1,5 +1,4 @@
 document.getElementById('fileInput').addEventListener('change', async function(event) {
-    import { createClient } from '@supabase/supabase-js'
     const file = event.target.files[0];
     const validFileTypes = ['image/jpeg', 'image/jpg', 'image/JPEG', 'image/JPG'];
     const maxSizeInBytes = 3 * 1024 * 1024; // 3 MB
