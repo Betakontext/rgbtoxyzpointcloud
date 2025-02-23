@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js'
+
 document.getElementById('fileInput').addEventListener('change', async function(event) {
     const file = event.target.files[0];
     const validFileTypes = ['image/jpeg', 'image/jpg', 'image/JPEG', 'image/JPG'];
@@ -20,8 +22,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         document.getElementById('loading').style.display = 'block';
 
         try {
-            import { createClient } from '@supabase/supabase-js'
-            const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co'
+            const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
             const supabaseKey = process.env.SUPABASE_KEYconst { createClient } = window.supabase;
             const supabase = createClient(supabaseUrl, supabaseKey);
             const { data, error } = await supabase.storage.from('images').upload(`public/${renamedFile.name}`, renamedFile);
