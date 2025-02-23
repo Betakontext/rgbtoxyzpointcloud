@@ -21,7 +21,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
 
         try {
             const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-            const supabaseKey = process.env.SUPABASE_TOKEN;
+            const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_TOKEN; // Use the public environment variable
             const supabase = createClient(supabaseUrl, supabaseKey);
             const { data, error } = await supabase.storage.from('images').upload(`public/${renamedFile.name}`, renamedFile);
             if (error) throw error;
