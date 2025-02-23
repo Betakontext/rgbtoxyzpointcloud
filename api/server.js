@@ -11,7 +11,7 @@ const router = express.Router();
 // const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
 // const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4MwAFohH9DHqYu1liHeXRJTLc6ZU_AMfmVXwnnCjYdg';
 const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-const supabaseKey = process.env.SUPABASE_TOKEN;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_TOKEN; // Use the public environment variable
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const listsDir = path.join(__dirname, '../lists');
