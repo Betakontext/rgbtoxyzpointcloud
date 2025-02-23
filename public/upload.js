@@ -8,34 +8,26 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         sessionStorage.removeItem('pointcloudJson');
 
         const formData = new FormData();
-
-        // Generate a new filename with date and time
-        const currentDate = new Date();
-        const timestamp = currentDate.toISOString().replace(/[-:.]/g, "");
-        const newFilename = `${timestamp}_${file.name}`;
-        const renamedFile = new File([file], newFilename, { type: file.type });
-
-        formData.append('image', renamedFile);
+        formData.append('image', file); // Append the file directly
 
         document.getElementById('loading').style.display = 'block';
 
         try {
-            const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-            const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_TOKEN; // Use the public environment variable
-            const supabase = createClient(supabaseUrl, supabaseKey);
-            const { data, error } = await supabase.storage.from('images').upload(`public/${renamedFile.name}`, renamedFile);
-            if (error) throw error;
+            const response = await fetch('/api/server', { // Call your serverless function
+                method: 'POST',
+                body: formData,
+            });
 
-            const { signedURL, error: signedUrlError } = await supabase.storage.from('images').createSignedUrl(`public/${renamedFile.name}`, 60 * 60); // URL expires in 1 hour
-            if (signedUrlError) throw signedUrlError;
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error);
 
-            const fileUrl = signedURL;
+            const fileUrl = result.signedURL;
             await processImage(fileUrl);
 
             document.getElementById('loading').style.display = 'none';
             document.getElementById('message').innerText = 'Upload successful.';
-        } catch (supabaseError) {
-            console.error('Error uploading file:', supabaseError);
+        } catch (error) {
+            console.error('Error uploading file:', error);
             document.getElementById('loading').style.display = 'none';
             document.getElementById('message').innerText = 'Error uploading file.';
         }
@@ -43,4 +35,3 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         alert('Please upload a valid JPEG image within 3 MB.');
     }
 });
-
