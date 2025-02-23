@@ -20,11 +20,9 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         document.getElementById('loading').style.display = 'block';
 
         try {
-            const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-            const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1cmwiOiJpbWFnZXMvcHVibGljLy01MjA4OTExNDI2MjM0NzI5ODk4XzEyMS5qcGciLCJpYXQiOjE3MzgyMjY1OTMsImV4cCI6MTc0MDgxODU5M30.vnGpdBpbw0pynqU0WsKmzCglENLF7_EVUCKsh1LK7Q8';
-            const { createClient } = window.supabase;
+            const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co'
+            const supabaseKey = process.env.SUPABASE_KEYconst { createClient } = window.supabase;
             const supabase = createClient(supabaseUrl, supabaseKey);
-
             const { data, error } = await supabase.storage.from('images').upload(`public/${renamedFile.name}`, renamedFile);
             if (error) throw error;
 
