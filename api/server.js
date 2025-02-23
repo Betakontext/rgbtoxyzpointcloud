@@ -3,16 +3,18 @@ const { createClient } = require('@supabase/supabase-js');
 const { createCanvas, loadImage } = require('canvas');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer'); // Middleware for handling file uploads
 
 const app = express();
 const router = express.Router();
 
 // Initialize Supabase client
-// const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-// const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVua3Bkc2Vjdm9wd2h4am9kbWFnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgxMzQ0NjksImV4cCI6MjA1MzcxMDQ2OX0.4MwAFohH9DHqYu1liHeXRJTLc6ZU_AMfmVXwnnCjYdg';
 const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_TOKEN; // Use the public environment variable
+const supabaseKey = process.env.SUPABASE_TOKEN; // Use the environment variable
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Set up multer for file uploads
+const upload = multer({ storage: multer.memoryStorage() });
 
 const listsDir = path.join(__dirname, '../lists');
 
@@ -20,7 +22,30 @@ if (!fs.existsSync(listsDir)) {
   fs.mkdirSync(listsDir, { recursive: true });
 }
 
-router.post('/upload', async (req, res) => {
+// Endpoint to upload an image to Supabase
+router.post('/upload', upload.single('image'), async (req, res) => {
+  const { originalname } = req.file; // Get the original file name
+  const filePath = `public/${originalname}`; // Define the path in Supabase storage
+
+  try {
+    // Upload the file to Supabase
+    const { data, error: uploadError } = await supabase.storage
+      .from('images')
+      .upload(filePath, req.file.buffer);
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    return res.status(200).json({ message: 'File uploaded successfully', filePath });
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    return res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Endpoint to download and process an image
+router.post('/process', async (req, res) => {
   const { imagePath } = req.body;
 
   try {
