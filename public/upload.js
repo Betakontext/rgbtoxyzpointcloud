@@ -20,6 +20,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
         document.getElementById('loading').style.display = 'block';
 
         try {
+            import { createClient } from '@supabase/supabase-js'
             const supabaseUrl = 'https://unkpdsecvopwhxjodmag.supabase.co'
             const supabaseKey = process.env.SUPABASE_KEYconst { createClient } = window.supabase;
             const supabase = createClient(supabaseUrl, supabaseKey);
