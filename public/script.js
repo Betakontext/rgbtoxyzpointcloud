@@ -126,7 +126,6 @@ function loadPointCloudFromSession() {
     }
 }
 
-
 // Function to check if a string is valid JSON
 function isValidJson(json) {
     try {
@@ -162,54 +161,26 @@ function extractPixelColors(imageBitmap) {
 }
 
 // Function to process the uploaded image
-async function processImage(imageUrl, isLocal = false) {
-        
+async function processImage(imageUrl) {
     try {
         // Clear previous point cloud
         const container = document.getElementById('pointcloud-container');
         while (container.firstChild) {
             container.removeChild(container.firstChild);
         }
-        console.log(imageUrl);
-        let imageBitmap;
 
-        if (isLocal) {
-            // Load local image using FileReader
-            const response = await fetch(imageUrl);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            imageBitmap = await new Promise((resolve, reject) => {
-                reader.onloadend = () => {
-                    const img = new Image();
-                    img.src = reader.result;
-                    img.onload = async () => {
-                        resolve(await createImageBitmap(img));
-                    };
-                    img.onerror = reject;
-                };
-                reader.onerror = reject;
-            });
-        } else {
-            const response = await fetch(imageUrl, {
-                mode: 'cors',
-                headers: {
-                    'Access-Control-Allow-Origin': '*'
-                }
-            });
-            if (!response.ok) {
-                throw new Error(`Network response was not ok: ${response.statusText}`);
-            }
-            const blob = await response.blob();
-            imageBitmap = await createImageBitmap(blob);
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+            throw new Error(`Network response was not ok: ${response.statusText}`);
         }
+        const blob = await response.blob();
+        const imageBitmap = await createImageBitmap(blob);
 
         if (!imageBitmap) {
             throw new Error('Failed to create image bitmap');
         }
 
         const pixelColors = extractPixelColors(imageBitmap);
-
         const json = generateJson(pixelColors);
         if (isValidJson(json)) {
             storeJson(json);
@@ -222,23 +193,38 @@ async function processImage(imageUrl, isLocal = false) {
     }
 }
 
-async function loadPointCloud(imageUrl) {
-    if (isLocalServer()) {
-        // Use the local picture in /Bilder
-        const localImageUrl = `/Bilder/${imageUrl}`;
-        await processImage(localImageUrl, true);
-    } else {
-        // Use the uploaded picture from Supabase
-        await processImage(imageUrl);
+// Function to upload an image and process it
+async function uploadAndProcessImage(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+        const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+        }
+
+        const uploadResult = await uploadResponse.json();
+        console.log('Upload successful:', uploadResult);
+
+        // Now process the uploaded image
+        await processImage(uploadResult.filePath);
+    } catch (error) {
+        console.error('Error uploading and processing image:', error);
     }
 }
 
-// Function to determine if running on a local server
-function isLocalServer() {
-    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-}
-
-
+// Function to handle file input change
+document.getElementById('fileInput').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (file) {
+        uploadAndProcessImage(file);
+    }
+});
 
 // Load the point cloud from the stored JSON data
 loadPointCloudFromSession();
@@ -246,4 +232,3 @@ loadPointCloudFromSession();
 // Include the LZString library for compression/decompression
 // You need to add the LZString library in your HTML file
 // <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
-
