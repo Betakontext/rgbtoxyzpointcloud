@@ -10,12 +10,11 @@ This program converts the RGB values of any chosen JPEG into XYZ coordinates. Ea
 
 https://rgbtoxyzpointcloud.vercel.app/
 
-The main folder contains the files for the online Version using vercel.com for deployment and local storage for the uploaded images to create a *.json to process the pointcloud:
-In this version the *.json lists of the extracted coordinates are stored in the session cache of your browser.
+The main branch contains the files for the online Version using vercel.com for deployment and local storage for the uploaded images to create a *.json to process the pointcloud: *.json lists of the extracted coordinates are stored in the session cache of your browser.
 
 ------------------
 
--> local Version in folder /local <-
+-> local Version in branch : V04_local <-
 
 To run the program offline on a local server: 
 
@@ -46,6 +45,7 @@ I atm recommend to start with *.jpgs of max. 1 mb, as the created *.json files t
 ------------------
 
 Have fun!
+
 
 
 
