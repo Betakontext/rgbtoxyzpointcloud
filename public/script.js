@@ -13,19 +13,19 @@ function decompressJson(compressedJson) {
     return LZString.decompressFromUTF16(compressedJson);
 }
 
-// Function to store JSON data in session storage
+// Function to store JSON data in local storage
 function storeJson(json, key = 'pointcloudJson') {
     try {
         const compressedJson = compressJson(json);
-        sessionStorage.setItem(key, compressedJson);
+        localStorage.setItem(key, compressedJson);
     } catch (e) {
         console.error('Error storing JSON:', e);
     }
 }
 
-// Function to read JSON data from session storage
+// Function to read JSON data from local storage
 function readJson(key = 'pointcloudJson') {
-    const compressedJson = sessionStorage.getItem(key);
+    const compressedJson = localStorage.getItem(key);
     if (compressedJson) {
         try {
             const json = decompressJson(compressedJson);
@@ -111,18 +111,18 @@ function renderPointCloud(pointCloudData) {
     animate();
 }
 
-// Ensure to clear the session storage when the tab is closed
+// Optionally clear local storage when the tab is closed (uncomment to enable clearing)
 window.addEventListener('beforeunload', () => {
-    sessionStorage.removeItem('pointcloudJson');
+    // localStorage.removeItem('pointcloudJson');
 });
 
-// Function to load the point cloud from session storage
-function loadPointCloudFromSession() {
+// Function to load the point cloud from local storage
+function loadPointCloudFromStorage() {
     const storedPixelColors = readJson();
     if (storedPixelColors) {
         renderPointCloud(storedPixelColors);
     } else {
-        console.error('No point cloud data found in session storage.');
+        console.error('No point cloud data found in local storage.');
     }
 }
 
@@ -163,39 +163,31 @@ function extractPixelColors(imageBitmap) {
 
 // Function to process the uploaded image
 async function processImage(imageUrl, isLocal = false) {
-        
     try {
         // Clear previous point cloud
         const container = document.getElementById('pointcloud-container');
         while (container.firstChild) {
             container.removeChild(container.firstChild);
         }
-        console.log(imageUrl);
         let imageBitmap;
 
-        if (isLocal) {
-            // Load local image using FileReader
-            const response = await fetch(imageUrl);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
+        // In our local mode, always load from Data URL
+        if (isLocal || imageUrl.startsWith('data:')) {
+            // Load local image using Data URL
             imageBitmap = await new Promise((resolve, reject) => {
-                reader.onloadend = () => {
-                    const img = new Image();
-                    img.src = reader.result;
-                    img.onload = async () => {
-                        resolve(await createImageBitmap(img));
-                    };
-                    img.onerror = reject;
+                const img = new Image();
+                img.src = imageUrl;
+                img.crossOrigin = 'Anonymous';
+                img.onload = async () => {
+                    resolve(await createImageBitmap(img));
                 };
-                reader.onerror = reject;
+                img.onerror = reject;
             });
         } else {
+            // (Unlikely in pure local) For completeness, allow CORS image fetch
             const response = await fetch(imageUrl, {
                 mode: 'cors',
-                headers: {
-                    'Access-Control-Allow-Origin': '*'
-                }
+                headers: { 'Access-Control-Allow-Origin': '*' }
             });
             if (!response.ok) {
                 throw new Error(`Network response was not ok: ${response.statusText}`);
@@ -213,7 +205,7 @@ async function processImage(imageUrl, isLocal = false) {
         const json = generateJson(pixelColors);
         if (isValidJson(json)) {
             storeJson(json);
-            loadPointCloudFromSession();
+            loadPointCloudFromStorage();
         } else {
             console.error('Invalid JSON data:', json);
         }
@@ -222,27 +214,12 @@ async function processImage(imageUrl, isLocal = false) {
     }
 }
 
+// If ever needed, wrap a loadPointCloud interface
 async function loadPointCloud(imageUrl) {
-    if (isLocalServer()) {
-        // Use the local picture in /Bilder
-        const localImageUrl = `/Bilder/${imageUrl}`;
-        await processImage(localImageUrl, true);
-    } else {
-        // Use the uploaded picture from Supabase
-        await processImage(imageUrl);
-    }
+    await processImage(imageUrl, true);
 }
-
-// Function to determine if running on a local server
-function isLocalServer() {
-    return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-}
-
-
 
 // Load the point cloud from the stored JSON data
-loadPointCloudFromSession();
+loadPointCloudFromStorage();
 
-// Include the LZString library for compression/decompression
-// You need to add the LZString library in your HTML file
-// <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+// LZString should be included in the HTML <script>
