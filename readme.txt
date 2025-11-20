@@ -22,7 +22,8 @@ Check if Node.js v18.12.0 is installed -> bash: node -v
 If you get: v18.12.0 you can run the app.
 If not or you have another version, install v18.12.0
 You can use NVM to switch between different versions of node.js
-To get NVM for Windows: Download the installer from https://github.com/coreybutler/nvm-windows/releases and run it. Open a new Command Prompt or PowerShell and run:
+To get NVM for Windows: Download and run the installer from https://github.com/coreybutler/nvm-windows/releases .
+Open a new Command Prompt or PowerShell and run:
 nvm install 18.12.0
 nvm use 18.12.0
 Verify the update: node -v
@@ -45,6 +46,7 @@ I atm recommend to start with *.jpgs of max. 1 mb, as the created *.json files t
 ------------------
 
 Have fun!
+
 
 
 
