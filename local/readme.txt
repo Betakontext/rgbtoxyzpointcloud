@@ -4,7 +4,7 @@ For full documentation see: https://github.com/Betakontext/rgbtoxyzpointcloud
 
 This program converts the RGB values of any chosen JPEG into XYZ coordinates. Each point gets the color value of the original pixel.
 
--> local Version in /local <-
+-> offline Version <-
 
 To run the program offline on a local server: 
 Open the terminal and go to /local folder.
@@ -21,3 +21,4 @@ To close local server with press ctrl+c
 -> Choose a *.jpg. I atm recommend to start with sth max 500kb, as the created *.json files to process the pointcloud can get quite big. 
 
 Have fun!
+
