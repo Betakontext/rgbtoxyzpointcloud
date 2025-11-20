@@ -14,7 +14,7 @@ The main branch contains the files for the online Version using vercel.com for d
 
 ------------------
 
--> offline Version in branch : V04_local-server_Offline-Version <-
+-> offline Version in branch : V03_offline-version <-
 
 To run the program offline on a local server: 
 
@@ -45,6 +45,7 @@ I atm recommend to start with *.jpgs of max. 1 mb, as the created *.json files t
 ------------------
 
 Have fun!
+
 
 
 
