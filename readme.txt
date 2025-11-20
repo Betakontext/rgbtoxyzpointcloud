@@ -15,7 +15,7 @@ In this version the *.json lists of the extracted coordinates are stored in the 
 
 ------------------
 
--> local Version in folder /local <-
+-> offline Version in branch: V02_offline-version <-
 
 To run the program offline on a local server: 
 
@@ -46,6 +46,7 @@ I atm recommend to start with *.jpgs of max. 1 mb, as the created *.json files t
 ------------------
 
 Have fun!
+
 
 
 
