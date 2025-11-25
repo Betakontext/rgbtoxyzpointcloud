@@ -4,8 +4,8 @@ document.getElementById('fileInput').addEventListener('change', async function (
     const maxSizeInBytes = 3 * 1024 * 1024; // 3 MB
 
     if (file && validFileTypes.includes(file.type) && file.size <= maxSizeInBytes) {
-        // Clear previous storage before starting a new upload
-        localStorage.removeItem('pointcloudJson');
+        // Clear previous cache entry before starting a new upload
+        await removeJsonFromCache();
 
         const reader = new FileReader();
         document.getElementById('loading').style.display = 'block';
