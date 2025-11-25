@@ -1,3 +1,7 @@
+// Add at top of file
+const CACHE_NAME = 'pointcloud-cache-v1';
+const CACHE_KEY = '/pointcloud.json';
+
 // Function to generate JSON data
 function generateJson(pixelColors) {
     return JSON.stringify(pixelColors);
@@ -13,29 +17,46 @@ function decompressJson(compressedJson) {
     return LZString.decompressFromUTF16(compressedJson);
 }
 
-// Function to store JSON data in local storage
-function storeJson(json, key = 'pointcloudJson') {
+// Store compressed JSON in Cache API
+async function storeJsonInCache(json, key = CACHE_KEY) {
     try {
         const compressedJson = compressJson(json);
-        localStorage.setItem(key, compressedJson);
+        const cache = await caches.open(CACHE_NAME);
+        const req = new Request(key);
+        const res = new Response(compressedJson, {
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+        });
+        await cache.put(req, res);
     } catch (e) {
-        console.error('Error storing JSON:', e);
+        console.error('Error storing JSON in cache:', e);
     }
 }
 
-// Function to read JSON data from local storage
-function readJson(key = 'pointcloudJson') {
-    const compressedJson = localStorage.getItem(key);
-    if (compressedJson) {
-        try {
-            const json = decompressJson(compressedJson);
-            return JSON.parse(json);
-        } catch (e) {
-            console.error('Error parsing JSON:', e);
-            return null;
-        }
+// Read JSON data from Cache API
+async function readJsonFromCache(key = CACHE_KEY) {
+    try {
+        const cache = await caches.open(CACHE_NAME);
+        const req = new Request(key);
+        const res = await cache.match(req);
+        if (!res) return null;
+        const compressedJson = await res.text();
+        const json = decompressJson(compressedJson);
+        return JSON.parse(json);
+    } catch (e) {
+        console.error('Error reading JSON from cache:', e);
+        return null;
     }
-    return null;
+}
+
+// Remove JSON from Cache API
+async function removeJsonFromCache(key = CACHE_KEY) {
+    try {
+        const cache = await caches.open(CACHE_NAME);
+        const req = new Request(key);
+        await cache.delete(req);
+    } catch (e) {
+        console.error('Error deleting JSON from cache:', e);
+    }
 }
 
 // Function to render the point cloud
@@ -116,13 +137,13 @@ window.addEventListener('beforeunload', () => {
     // localStorage.removeItem('pointcloudJson');
 });
 
-// Function to load the point cloud from local storage
-function loadPointCloudFromStorage() {
-    const storedPixelColors = readJson();
+// Update loadPointCloudFromStorage to be async and use cache
+async function loadPointCloudFromStorage() {
+    const storedPixelColors = await readJsonFromCache();
     if (storedPixelColors) {
         renderPointCloud(storedPixelColors);
     } else {
-        console.error('No point cloud data found in local storage.');
+        console.error('No point cloud data found in cache.');
     }
 }
 
@@ -161,7 +182,7 @@ function extractPixelColors(imageBitmap) {
     return pixelColors;
 }
 
-// Function to process the uploaded image
+// Update processImage to await cache storage and load
 async function processImage(imageUrl, isLocal = false) {
     try {
         // Clear previous point cloud
@@ -171,9 +192,7 @@ async function processImage(imageUrl, isLocal = false) {
         }
         let imageBitmap;
 
-        // In our local mode, always load from Data URL
         if (isLocal || imageUrl.startsWith('data:')) {
-            // Load local image using Data URL
             imageBitmap = await new Promise((resolve, reject) => {
                 const img = new Image();
                 img.src = imageUrl;
@@ -184,28 +203,22 @@ async function processImage(imageUrl, isLocal = false) {
                 img.onerror = reject;
             });
         } else {
-            // (Unlikely in pure local) For completeness, allow CORS image fetch
             const response = await fetch(imageUrl, {
                 mode: 'cors',
                 headers: { 'Access-Control-Allow-Origin': '*' }
             });
-            if (!response.ok) {
-                throw new Error(`Network response was not ok: ${response.statusText}`);
-            }
+            if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
             const blob = await response.blob();
             imageBitmap = await createImageBitmap(blob);
         }
 
-        if (!imageBitmap) {
-            throw new Error('Failed to create image bitmap');
-        }
+        if (!imageBitmap) throw new Error('Failed to create image bitmap');
 
         const pixelColors = extractPixelColors(imageBitmap);
-
         const json = generateJson(pixelColors);
         if (isValidJson(json)) {
-            storeJson(json);
-            loadPointCloudFromStorage();
+            await storeJsonInCache(json);           // <-- store in Cache API
+            await loadPointCloudFromStorage();     // <-- await loading/rendering
         } else {
             console.error('Invalid JSON data:', json);
         }
