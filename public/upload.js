@@ -1,16 +1,37 @@
 document.getElementById('fileInput').addEventListener('change', async function (event) {
-    const file = event.target.files[0];
-    const validFileTypes = ['image/jpeg', 'image/jpg', 'image/JPEG', 'image/JPG'];
 
-    if (!file) {
-        alert('Please select a file to upload.');
-        return;
+    // helper: accept many jpeg variants, with fallback to magic-bytes check
+    const jpegExtensions = new Set(['jpg','jpeg','jpe','jif','jfif','jfi']);
+    function mimeLooksLikeJpeg(mime) {
+      return /^image\/(jpeg|pjpeg|x-jpeg)$/i.test(mime);
     }
-
-    // Optional: keep MIME/type validation but remove the fixed size limit
-    if (!validFileTypes.includes(file.type)) {
-        alert('Please upload a valid JPEG image.');
-        return;
+    async function isLikelyJpeg(file) {
+      // 1) MIME/type check
+      if (mimeLooksLikeJpeg(file.type)) return true;
+    
+      // 2) extension check (useful when file.type is empty or incorrect)
+      const name = file.name || '';
+      const ext = name.split('.').pop().toLowerCase();
+      if (jpegExtensions.has(ext)) return true;
+    
+      // 3) magic bytes check (reliable): JPEG files start with 0xFF 0xD8 0xFF
+      try {
+        const header = await file.slice(0, 3).arrayBuffer();
+        const bytes = new Uint8Array(header);
+        return bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF;
+      } catch (e) {
+        console.warn('Could not read file header for JPEG check:', e);
+        return false;
+      }
+    }
+    
+    const file = event.target.files[0];
+    if (!file) { alert('Please select a file'); return; }
+    
+    // replace the previous MIME/size logic with:
+    if (!await isLikelyJpeg(file)) {
+      alert('Please upload a JPEG image.');
+      return;
     }
 
     // Clear previous cache entry before starting a new upload (if using cache API helpers from script.js)
