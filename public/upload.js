@@ -1,37 +1,16 @@
 document.getElementById('fileInput').addEventListener('change', async function (event) {
 
-    // helper: accept many jpeg variants, with fallback to magic-bytes check
-    const jpegExtensions = new Set(['jpg','jpeg','jpe','jif','jfif','jfi']);
-    function mimeLooksLikeJpeg(mime) {
-      return /^image\/(jpeg|pjpeg|x-jpeg)$/i.test(mime);
+    // helper: accept many picture variants, with fallback to magic-bytes check
+    const allowedMimes = new Set([ 'image/jpeg','image/pjpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif', 'image/tiff','image/x-tiff' ]);
     }
-    async function isLikelyJpeg(file) {
-      // 1) MIME/type check
-      if (mimeLooksLikeJpeg(file.type)) return true;
-    
-      // 2) extension check (useful when file.type is empty or incorrect)
-      const name = file.name || '';
-      const ext = name.split('.').pop().toLowerCase();
-      if (jpegExtensions.has(ext)) return true;
-    
-      // 3) magic bytes check (reliable): JPEG files start with 0xFF 0xD8 0xFF
-      try {
-        const header = await file.slice(0, 3).arrayBuffer();
-        const bytes = new Uint8Array(header);
-        return bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF;
-      } catch (e) {
-        console.warn('Could not read file header for JPEG check:', e);
-        return false;
-      }
+    async function looksLikeImage(file) { // 1) MIME check if (file.type && allowedMimes.has(file.type.toLowerCase())) return true;
+    // 2) extension fallback const ext = (file.name || '').split('.').pop().toLowerCase(); if (['jpg','jpeg','jpe','png','gif','webp','avif','tif','tiff','heic','heif'].includes(ext)) return true;
+    // 3) magic bytes for common formats (JPEG, PNG, GIF, WebP) try { const header = await file.slice(0, 12).arrayBuffer(); const b = new Uint8Array(header); // JPEG: FF D8 FF if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return true; // PNG: 89 50 4E 47 0D 0A 1A 0A if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) return true; // GIF: 'GIF' at start if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return true; // WebP: 'RIFF'....'WEBP' if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return true; // AVIF/HEIF detection is more involved (ftyp box contains 'avif'/'heic'), skip here } catch (e) { console.warn('Header read failed:', e); } return false; }
     }
     
     const file = event.target.files[0];
-    if (!file) { alert('Please select a file'); return; }
-    
-    // replace the previous MIME/size logic with:
-    if (!await isLikelyJpeg(file)) {
-      alert('Please upload a JPEG image.');
-      return;
+    if (!file) { alert('Please select an image file'); return; }
+    if (!await looksLikeImage(file)) { alert('Please upload a supported image format (JPEG, PNG, GIF, WebP, AVIF, TIFF).'); return; }
     }
 
     // Clear previous cache entry before starting a new upload (if using cache API helpers from script.js)
