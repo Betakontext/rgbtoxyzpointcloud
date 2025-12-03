@@ -1,16 +1,25 @@
 // Binary pointcloud storage and rendering
-// Handles packing pixels as RGB8 bytes, metadata in cache, optional gzip compression (requires pako), and a small UI for controls.
+// Stores pixels as RGB8 bytes in the Cache API; includes a small UI for controls and reload support.
 
 const CACHE_NAME = 'pointcloud-cache';
-const BIN_KEY = '/pointcloud.bin';
-const META_KEY = '/pointcloud.meta';
+const BIN_KEY_PREFIX = '/pointcloud_'; // keys will be /pointcloud_<maxDim>.bin
+const META_KEY_PREFIX = '/pointcloud_meta_'; // keys will be /pointcloud_meta_<maxDim>.json
 const LOCAL_STORAGE_KEY = 'pointcloudJsonBackup';
+const LAST_IMAGE_KEY = 'pc_last_image_dataurl';
 
 // Default config (0 = full resolution)
 const pcConfig = {
-  maxDimension: 0, // 0 = keep original, otherwise scale longest side to this
-  compression: 'none' // 'none' or 'gzip'
+  maxDimension: 0 // 0 = keep original, otherwise scale longest side to this
 };
+
+// Simple debounce helper
+function debounce(fn, wait) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), wait);
+  };
+}
 
 // Create a simple control panel if not present in DOM
 function ensureControlPanel() {
@@ -21,23 +30,19 @@ function ensureControlPanel() {
   panel.style.position = 'fixed';
   panel.style.top = '10px';
   panel.style.right = '10px';
-  panel.style.background = 'rgba(255,255,255,0.9)';
+  panel.style.background = 'rgba(255,255,255,0.95)';
   panel.style.border = '1px solid #ccc';
   panel.style.padding = '8px';
   panel.style.zIndex = 9999;
   panel.style.fontFamily = 'sans-serif';
   panel.style.fontSize = '13px';
+  panel.style.maxWidth = '240px';
 
   panel.innerHTML = `
     <div style="margin-bottom:6px;"><strong>PointCloud Controls</strong></div>
     <label>Max dimension (px, 0 = full): <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}" style="width:80px;" /></label>
     <div style="height:6px"></div>
-    <label>Compression: 
-      <select id="pc-compression">
-        <option value="none">None</option>
-        <option value="gzip">gzip (pako)</option>
-      </select>
-    </label>
+    <button id="pc-reload-image">Reload image at current resolution</button>
     <div style="height:6px"></div>
     <button id="pc-clear-cache">Clear Cache</button>
   `;
@@ -45,28 +50,45 @@ function ensureControlPanel() {
   document.body.appendChild(panel);
 
   const maxDimInput = document.getElementById('pc-max-dim');
-  const compSelect = document.getElementById('pc-compression');
+  const reloadBtn = document.getElementById('pc-reload-image');
   const clearBtn = document.getElementById('pc-clear-cache');
 
-  maxDimInput.addEventListener('change', () => {
+  // Debounced change handler so rapid edits don't retrigger many loads
+  const onMaxDimChange = debounce(async () => {
     const v = parseInt(maxDimInput.value, 10);
     pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
     console.log('pcConfig.maxDimension =', pcConfig.maxDimension);
-  });
 
-  compSelect.value = pcConfig.compression;
-  compSelect.addEventListener('change', () => {
-    pcConfig.compression = compSelect.value;
-    console.log('pcConfig.compression =', pcConfig.compression);
-    if (pcConfig.compression === 'gzip' && !window.pako) {
-      console.warn('gzip compression selected but pako not found. Falling back to none at storage time.');
+    // If we have a last image, automatically reload it at the new resolution
+    const last = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
+    if (last) {
+      await processImage(last, { maxDimension: pcConfig.maxDimension });
+    } else {
+      // If no last, attempt to load from cache for the current resolution
+      await loadPointCloudFromStorage();
     }
+  }, 300);
+
+  maxDimInput.addEventListener('change', onMaxDimChange);
+
+  reloadBtn.addEventListener('click', async () => {
+    const last = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
+    if (!last) {
+      alert('No previously loaded image found. Upload an image first.');
+      return;
+    }
+    await processImage(last, { maxDimension: pcConfig.maxDimension });
   });
 
   clearBtn.addEventListener('click', async () => {
     await clearCacheAndStorage();
     alert('Cache and localStorage backup cleared.');
   });
+}
+
+function getKeysFor(maxDim) {
+  const dim = (typeof maxDim === 'number') ? maxDim : pcConfig.maxDimension;
+  return { binKey: `${BIN_KEY_PREFIX}${dim}.bin`, metaKey: `${META_KEY_PREFIX}${dim}.json` };
 }
 
 // Packing: create Uint8Array of pixels RGB order (no alpha)
@@ -82,28 +104,17 @@ function packPixels(imageData, width, height) {
   return pixels;
 }
 
-async function storeBinaryToCache(pixelBytes, width, height, compression = 'none') {
+async function storeBinaryToCache(pixelBytes, width, height, maxDim) {
   try {
     const cache = await caches.open(CACHE_NAME);
+    const keys = getKeysFor(maxDim);
 
     // Create meta
-    const meta = { width, height, compression, format: 'rgb8' };
-    await cache.put(META_KEY, new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } }));
+    const meta = { width, height, format: 'rgb8' };
+    await cache.put(keys.metaKey, new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } }));
 
-    let toStore;
-    if (compression === 'gzip' && window.pako) {
-      console.log('Compressing pixel bytes with pako.gzip...');
-      const gz = window.pako.gzip(pixelBytes);
-      toStore = new Uint8Array(gz).buffer;
-    } else {
-      if (compression === 'gzip' && !window.pako) {
-        console.warn('gzip selected but pako not available. Storing uncompressed.');
-      }
-      toStore = pixelBytes.buffer;
-    }
-
-    await cache.put(BIN_KEY, new Response(toStore, { headers: { 'Content-Type': 'application/octet-stream' } }));
-    console.log('Stored pointcloud binary and meta to Cache API');
+    await cache.put(keys.binKey, new Response(pixelBytes.buffer, { headers: { 'Content-Type': 'application/octet-stream' } }));
+    console.log('Stored pointcloud binary and meta to Cache API with keys', keys);
 
     // Optionally attempt a localStorage backup for small images only
     try {
@@ -127,33 +138,18 @@ async function storeBinaryToCache(pixelBytes, width, height, compression = 'none
   }
 }
 
-async function readBinaryFromCache() {
+async function readBinaryFromCache(maxDim) {
+  const keys = getKeysFor(maxDim);
   // Try Cache API
   if ('caches' in window) {
     try {
       const cache = await caches.open(CACHE_NAME);
-      const metaResp = await cache.match(META_KEY);
-      const binResp = await cache.match(BIN_KEY);
+      const metaResp = await cache.match(keys.metaKey);
+      const binResp = await cache.match(keys.binKey);
       if (metaResp && binResp) {
         const meta = await metaResp.json();
         const ab = await binResp.arrayBuffer();
-        let pixelBytes;
-        if (meta.compression === 'gzip') {
-          if (window.pako) {
-            try {
-              const decompressed = window.pako.ungzip(new Uint8Array(ab));
-              pixelBytes = new Uint8Array(decompressed);
-            } catch (e) {
-              console.error('pako ungzip failed:', e);
-              return null;
-            }
-          } else {
-            console.warn('gzip compressed data found but pako not available');
-            return null;
-          }
-        } else {
-          pixelBytes = new Uint8Array(ab);
-        }
+        const pixelBytes = new Uint8Array(ab);
 
         // Validate size
         if (pixelBytes.length !== meta.width * meta.height * 3) {
@@ -187,14 +183,21 @@ async function clearCacheAndStorage() {
   try {
     if ('caches' in window) {
       const cache = await caches.open(CACHE_NAME);
-      await cache.delete(BIN_KEY);
-      await cache.delete(META_KEY);
+      const requests = await cache.keys();
+      for (const req of requests) {
+        const url = req.url || '';
+        if (url.includes(BIN_KEY_PREFIX) || url.includes(META_KEY_PREFIX)) {
+          await cache.delete(req);
+        }
+      }
     }
   } catch (e) {
     console.warn('Failed clearing cache:', e);
   }
   try {
     localStorage.removeItem(LOCAL_STORAGE_KEY);
+    sessionStorage.removeItem(LAST_IMAGE_KEY);
+    localStorage.removeItem(LAST_IMAGE_KEY);
   } catch (e) {
     console.warn('Failed clearing localStorage backup:', e);
   }
@@ -262,11 +265,11 @@ function renderPointCloudFromBytes(width, height, pixelBytes) {
 
 // Top-level loader from cache (used after storing)
 async function loadPointCloudFromStorage() {
-  const data = await readBinaryFromCache();
+  const data = await readBinaryFromCache(pcConfig.maxDimension);
   if (data) {
     renderPointCloudFromBytes(data.width, data.height, data.pixels);
   } else {
-    console.error('No pointcloud data found in cache/localStorage.');
+    console.error('No pointcloud data found in cache/localStorage for current resolution.');
   }
 }
 
@@ -276,7 +279,15 @@ async function processImage(imageUrl, options = {}) {
     ensureControlPanel();
 
     const maxDim = (typeof options.maxDimension === 'number') ? options.maxDimension : pcConfig.maxDimension;
-    const compression = options.compression || pcConfig.compression || 'none';
+
+    // Persist the last image Data URL so reloads/changes work without re-upload
+    if (imageUrl && imageUrl.startsWith('data:')) {
+      try {
+        sessionStorage.setItem(LAST_IMAGE_KEY, imageUrl);
+      } catch (e) {
+        try { localStorage.setItem(LAST_IMAGE_KEY, imageUrl); } catch (e2) { /* ignore */ }
+      }
+    }
 
     // clear previous point cloud container
     const container = document.getElementById('pointcloud-container');
@@ -307,7 +318,7 @@ async function processImage(imageUrl, options = {}) {
     const pixelBytes = packPixels(imageData, targetWidth, targetHeight);
 
     // Store to cache (binary) and then load
-    await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, compression);
+    await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, maxDim);
     await loadPointCloudFromStorage();
   } catch (e) {
     console.error('Error processing image:', e);
@@ -330,8 +341,8 @@ async function loadImageBitmap(imageUrl) {
   }
 }
 
-// On load, ensure panel exists and try to render any cached data
+// On load, ensure panel exists and try to render any cached data for current resolution
 ensureControlPanel();
 loadPointCloudFromStorage();
 
-// LZString and optionally pako should be included in the HTML for compression support.
+// LZString should be included in the HTML for the small localStorage backup support.
