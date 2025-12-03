@@ -21,47 +21,61 @@ document.getElementById('fileInput').addEventListener('change', async function (
         if ('caches' in window) {
             try {
                 const cache = await caches.open('pointcloud-cache');
-                await cache.delete('/pointcloud.bin');
-                await cache.delete('/pointcloud.meta');
+                const keys = await cache.keys();
+                for (const req of keys) {
+                    const url = req.url || '';
+                    if (url.includes('/pointcloud_') || url.includes('/pointcloud_meta_')) {
+                        await cache.delete(req);
+                    }
+                }
                 console.log('Cleared cached pointcloud files');
             } catch (e) {
                 console.warn('Failed to clear cache entry:', e);
             }
         }
         localStorage.removeItem('pointcloudJsonBackup');
+        sessionStorage.removeItem('pc_last_image_dataurl');
+        localStorage.removeItem('pc_last_image_dataurl');
     } catch (e) {
         console.warn('Error clearing previous storage:', e);
     }
 
     const reader = new FileReader();
-    document.getElementById('loading').style.display = 'block';
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'block';
 
     reader.onload = async function (e) {
         const imageUrl = e.target.result; // Data URL
 
+        // persist last image data so reloads/resolution-changes work without re-upload
+        try {
+            sessionStorage.setItem('pc_last_image_dataurl', imageUrl);
+        } catch (e) {
+            try { localStorage.setItem('pc_last_image_dataurl', imageUrl); } catch (e2) { /* ignore */ }
+        }
+
         // Read UI controls if present to pass as options
         const maxDimEl = document.getElementById('pc-max-dim');
-        const compEl = document.getElementById('pc-compression');
 
         const options = {};
         if (maxDimEl) {
             const v = parseInt(maxDimEl.value, 10);
             options.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
         }
-        if (compEl) {
-            options.compression = compEl.value || 'none';
-        }
 
         // Process the image directly from the Data URL
         await processImage(imageUrl, options);
 
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('message').innerText = 'Image processed locally.';
+        if (loadingEl) loadingEl.style.display = 'none';
+        const msg = document.getElementById('message');
+        if (msg) msg.innerText = 'Image processed locally.';
     };
 
     reader.onerror = function () {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('message').innerText = 'Error reading file.';
+        const loadingEl = document.getElementById('loading');
+        if (loadingEl) loadingEl.style.display = 'none';
+        const msg = document.getElementById('message');
+        if (msg) msg.innerText = 'Error reading file.';
         alert('Error reading file.');
     };
 
