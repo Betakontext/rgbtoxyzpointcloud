@@ -1,225 +1,337 @@
-// Function to generate JSON data
-function generateJson(pixelColors) {
-    return JSON.stringify(pixelColors);
-}
+// Binary pointcloud storage and rendering
+// Handles packing pixels as RGB8 bytes, metadata in cache, optional gzip compression (requires pako), and a small UI for controls.
 
-// Function to compress JSON data
-function compressJson(json) {
-    return LZString.compressToUTF16(json);
-}
+const CACHE_NAME = 'pointcloud-cache';
+const BIN_KEY = '/pointcloud.bin';
+const META_KEY = '/pointcloud.meta';
+const LOCAL_STORAGE_KEY = 'pointcloudJsonBackup';
 
-// Function to decompress JSON data
-function decompressJson(compressedJson) {
-    return LZString.decompressFromUTF16(compressedJson);
-}
+// Default config (0 = full resolution)
+const pcConfig = {
+  maxDimension: 0, // 0 = keep original, otherwise scale longest side to this
+  compression: 'none' // 'none' or 'gzip'
+};
 
-// Function to store JSON data in local storage
-function storeJson(json, key = 'pointcloudJson') {
-    try {
-        const compressedJson = compressJson(json);
-        localStorage.setItem(key, compressedJson);
-    } catch (e) {
-        console.error('Error storing JSON:', e);
+// Create a simple control panel if not present in DOM
+function ensureControlPanel() {
+  if (document.getElementById('pc-control-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'pc-control-panel';
+  panel.style.position = 'fixed';
+  panel.style.top = '10px';
+  panel.style.right = '10px';
+  panel.style.background = 'rgba(255,255,255,0.9)';
+  panel.style.border = '1px solid #ccc';
+  panel.style.padding = '8px';
+  panel.style.zIndex = 9999;
+  panel.style.fontFamily = 'sans-serif';
+  panel.style.fontSize = '13px';
+
+  panel.innerHTML = `
+    <div style="margin-bottom:6px;"><strong>PointCloud Controls</strong></div>
+    <label>Max dimension (px, 0 = full): <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}" style="width:80px;" /></label>
+    <div style="height:6px"></div>
+    <label>Compression: 
+      <select id="pc-compression">
+        <option value="none">None</option>
+        <option value="gzip">gzip (pako)</option>
+      </select>
+    </label>
+    <div style="height:6px"></div>
+    <button id="pc-clear-cache">Clear Cache</button>
+  `;
+
+  document.body.appendChild(panel);
+
+  const maxDimInput = document.getElementById('pc-max-dim');
+  const compSelect = document.getElementById('pc-compression');
+  const clearBtn = document.getElementById('pc-clear-cache');
+
+  maxDimInput.addEventListener('change', () => {
+    const v = parseInt(maxDimInput.value, 10);
+    pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
+    console.log('pcConfig.maxDimension =', pcConfig.maxDimension);
+  });
+
+  compSelect.value = pcConfig.compression;
+  compSelect.addEventListener('change', () => {
+    pcConfig.compression = compSelect.value;
+    console.log('pcConfig.compression =', pcConfig.compression);
+    if (pcConfig.compression === 'gzip' && !window.pako) {
+      console.warn('gzip compression selected but pako not found. Falling back to none at storage time.');
     }
+  });
+
+  clearBtn.addEventListener('click', async () => {
+    await clearCacheAndStorage();
+    alert('Cache and localStorage backup cleared.');
+  });
 }
 
-// Function to read JSON data from local storage
-function readJson(key = 'pointcloudJson') {
-    const compressedJson = localStorage.getItem(key);
-    if (compressedJson) {
-        try {
-            const json = decompressJson(compressedJson);
-            return JSON.parse(json);
-        } catch (e) {
-            console.error('Error parsing JSON:', e);
-            return null;
-        }
-    }
-    return null;
+// Packing: create Uint8Array of pixels RGB order (no alpha)
+function packPixels(imageData, width, height) {
+  const pixels = new Uint8Array(width * height * 3);
+  const data = imageData.data; // RGBA
+  let p = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    pixels[p++] = data[i];     // r
+    pixels[p++] = data[i + 1]; // g
+    pixels[p++] = data[i + 2]; // b
+  }
+  return pixels;
 }
 
-// Function to render the point cloud
-function renderPointCloud(pointCloudData) {
-    // Create the scene
-    const scene = new THREE.Scene();
+async function storeBinaryToCache(pixelBytes, width, height, compression = 'none') {
+  try {
+    const cache = await caches.open(CACHE_NAME);
 
-    // Set up the camera with a perspective view
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 0, 500); // Adjust the camera position
+    // Create meta
+    const meta = { width, height, compression, format: 'rgb8' };
+    await cache.put(META_KEY, new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } }));
 
-    // Set up the renderer and attach it to the document
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.getElementById('pointcloud-container').appendChild(renderer.domElement); // Append to a specific container
-
-    // Create geometry and arrays to hold vertices and colors
-    const geometry = new THREE.BufferGeometry();
-    const vertices = [];
-    const colors = [];
-
-    // Populate the arrays with data from the JSON file
-    pointCloudData.forEach((color) => {
-        const x = ((color[0] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-        const y = ((color[1] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-        const z = ((color[2] / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-
-        // Validate that x, y, z are numbers and not NaN
-        if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
-            vertices.push(x, y, z);
-
-            const r = color[0] / 255;
-            const g = color[1] / 255;
-            const b = color[2] / 255;
-            colors.push(r, g, b);
-        }
-    });
-
-    // Attach the vertices and colors to the geometry
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-    // Compute bounding sphere to avoid NaN errors
-    geometry.computeBoundingSphere();
-    if (!geometry.boundingSphere || isNaN(geometry.boundingSphere.radius)) {
-        console.error('Bounding sphere computation failed. Geometry has NaN values.');
-        return;
-    }
-
-    // Create the material for the point cloud
-    const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
-
-    // Create the point cloud and add it to the scene
-    const pointCloud = new THREE.Points(geometry, material);
-    scene.add(pointCloud);
-
-    // Set up orbit controls for the camera
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableZoom = true;
-    controls.enablePan = true;
-    controls.enableRotate = true;
-
-    // Define the animation loop to render the scene
-    const animate = function () {
-        requestAnimationFrame(animate);
-        pointCloud.rotation.x += 0.001;
-        pointCloud.rotation.y += 0.001;
-        controls.update();
-        renderer.render(scene, camera);
-    };
-
-    // Start the animation loop
-    animate();
-}
-
-// Optionally clear local storage when the tab is closed (uncomment to enable clearing)
-window.addEventListener('beforeunload', () => {
-    // localStorage.removeItem('pointcloudJson');
-});
-
-// Function to load the point cloud from local storage
-function loadPointCloudFromStorage() {
-    const storedPixelColors = readJson();
-    if (storedPixelColors) {
-        renderPointCloud(storedPixelColors);
+    let toStore;
+    if (compression === 'gzip' && window.pako) {
+      console.log('Compressing pixel bytes with pako.gzip...');
+      const gz = window.pako.gzip(pixelBytes);
+      toStore = new Uint8Array(gz).buffer;
     } else {
-        console.error('No point cloud data found in local storage.');
+      if (compression === 'gzip' && !window.pako) {
+        console.warn('gzip selected but pako not available. Storing uncompressed.');
+      }
+      toStore = pixelBytes.buffer;
     }
-}
 
+    await cache.put(BIN_KEY, new Response(toStore, { headers: { 'Content-Type': 'application/octet-stream' } }));
+    console.log('Stored pointcloud binary and meta to Cache API');
 
-// Function to check if a string is valid JSON
-function isValidJson(json) {
+    // Optionally attempt a localStorage backup for small images only
     try {
-        JSON.parse(json);
-        return true;
+      const maxBackupPixels = 200000; // backup only when reasonable size
+      if (width * height <= maxBackupPixels) {
+        const str = JSON.stringify({ width, height, pixels: Array.from(pixelBytes) });
+        const compressed = LZString.compressToUTF16(str);
+        localStorage.setItem(LOCAL_STORAGE_KEY, compressed);
+        console.log('Stored backup in localStorage (compressed).');
+      } else {
+        console.log('Skipping localStorage backup: image too large for reliable backup.');
+      }
     } catch (e) {
-        return false;
-    }
-}
-
-// Function to extract pixel colors from an image bitmap
-function extractPixelColors(imageBitmap) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-
-    canvas.width = imageBitmap.width;
-    canvas.height = imageBitmap.height;
-
-    context.drawImage(imageBitmap, 0, 0);
-
-    const imageData = context.getImageData(0, 0, imageBitmap.width, imageBitmap.height);
-    const data = imageData.data;
-
-    const pixelColors = [];
-    for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        pixelColors.push([r, g, b]);
+      console.warn('localStorage backup failed:', e);
     }
 
-    return pixelColors;
+    return true;
+  } catch (e) {
+    console.error('Error storing binary to cache:', e);
+    return false;
+  }
 }
 
-// Function to process the uploaded image
-async function processImage(imageUrl, isLocal = false) {
+async function readBinaryFromCache() {
+  // Try Cache API
+  if ('caches' in window) {
     try {
-        // Clear previous point cloud
-        const container = document.getElementById('pointcloud-container');
-        while (container.firstChild) {
-            container.removeChild(container.firstChild);
-        }
-        let imageBitmap;
-
-        // In our local mode, always load from Data URL
-        if (isLocal || imageUrl.startsWith('data:')) {
-            // Load local image using Data URL
-            imageBitmap = await new Promise((resolve, reject) => {
-                const img = new Image();
-                img.src = imageUrl;
-                img.crossOrigin = 'Anonymous';
-                img.onload = async () => {
-                    resolve(await createImageBitmap(img));
-                };
-                img.onerror = reject;
-            });
-        } else {
-            // (Unlikely in pure local) For completeness, allow CORS image fetch
-            const response = await fetch(imageUrl, {
-                mode: 'cors',
-                headers: { 'Access-Control-Allow-Origin': '*' }
-            });
-            if (!response.ok) {
-                throw new Error(`Network response was not ok: ${response.statusText}`);
+      const cache = await caches.open(CACHE_NAME);
+      const metaResp = await cache.match(META_KEY);
+      const binResp = await cache.match(BIN_KEY);
+      if (metaResp && binResp) {
+        const meta = await metaResp.json();
+        const ab = await binResp.arrayBuffer();
+        let pixelBytes;
+        if (meta.compression === 'gzip') {
+          if (window.pako) {
+            try {
+              const decompressed = window.pako.ungzip(new Uint8Array(ab));
+              pixelBytes = new Uint8Array(decompressed);
+            } catch (e) {
+              console.error('pako ungzip failed:', e);
+              return null;
             }
-            const blob = await response.blob();
-            imageBitmap = await createImageBitmap(blob);
-        }
-
-        if (!imageBitmap) {
-            throw new Error('Failed to create image bitmap');
-        }
-
-        const pixelColors = extractPixelColors(imageBitmap);
-
-        const json = generateJson(pixelColors);
-        if (isValidJson(json)) {
-            storeJson(json);
-            loadPointCloudFromStorage();
+          } else {
+            console.warn('gzip compressed data found but pako not available');
+            return null;
+          }
         } else {
-            console.error('Invalid JSON data:', json);
+          pixelBytes = new Uint8Array(ab);
         }
-    } catch (error) {
-        console.error('Error processing image:', error);
+
+        // Validate size
+        if (pixelBytes.length !== meta.width * meta.height * 3) {
+          console.error('Pixel buffer size mismatch:', pixelBytes.length, 'expected', meta.width * meta.height * 3);
+          return null;
+        }
+
+        return { width: meta.width, height: meta.height, pixels: pixelBytes };
+      }
+    } catch (e) {
+      console.warn('Cache read failed, will attempt localStorage backup:', e);
     }
+  }
+
+  // Fallback: localStorage compressed JSON backup
+  try {
+    const compressed = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (compressed) {
+      const str = LZString.decompressFromUTF16(compressed);
+      const obj = JSON.parse(str);
+      return { width: obj.width, height: obj.height, pixels: new Uint8Array(obj.pixels) };
+    }
+  } catch (e) {
+    console.warn('localStorage restore failed:', e);
+  }
+
+  return null;
 }
 
-// If ever needed, wrap a loadPointCloud interface
-async function loadPointCloud(imageUrl) {
-    await processImage(imageUrl, true);
+async function clearCacheAndStorage() {
+  try {
+    if ('caches' in window) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.delete(BIN_KEY);
+      await cache.delete(META_KEY);
+    }
+  } catch (e) {
+    console.warn('Failed clearing cache:', e);
+  }
+  try {
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+  } catch (e) {
+    console.warn('Failed clearing localStorage backup:', e);
+  }
 }
 
-// Load the point cloud from the stored JSON data
+// Render point cloud from pixel bytes (RGB8)
+function renderPointCloudFromBytes(width, height, pixelBytes) {
+  // Remove previous renderer if any
+  const container = document.getElementById('pointcloud-container');
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 0, 500);
+  const renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  container.appendChild(renderer.domElement);
+
+  const geometry = new THREE.BufferGeometry();
+  const numPixels = width * height;
+  const vertices = new Float32Array(numPixels * 3);
+  const colors = new Float32Array(numPixels * 3);
+
+  let v = 0;
+  for (let i = 0, p = 0; i < numPixels; i++, p += 3) {
+    const r = pixelBytes[p];
+    const g = pixelBytes[p + 1];
+    const b = pixelBytes[p + 2];
+
+    // Map pixel colors to 3D coordinates (keeps your previous color->position mapping)
+    const x = ((r / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
+    const y = ((g / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
+    const z = ((b / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
+
+    vertices[v * 3 + 0] = x;
+    vertices[v * 3 + 1] = y;
+    vertices[v * 3 + 2] = z;
+
+    colors[v * 3 + 0] = r / 255;
+    colors[v * 3 + 1] = g / 255;
+    colors[v * 3 + 2] = b / 255;
+
+    v++;
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.computeBoundingSphere();
+
+  const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
+  const points = new THREE.Points(geometry, material);
+  scene.add(points);
+
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableZoom = true;
+
+  (function animate() {
+    requestAnimationFrame(animate);
+    points.rotation.x += 0.001;
+    points.rotation.y += 0.001;
+    controls.update();
+    renderer.render(scene, camera);
+  })();
+}
+
+// Top-level loader from cache (used after storing)
+async function loadPointCloudFromStorage() {
+  const data = await readBinaryFromCache();
+  if (data) {
+    renderPointCloudFromBytes(data.width, data.height, data.pixels);
+  } else {
+    console.error('No pointcloud data found in cache/localStorage.');
+  }
+}
+
+// Process image: draw to canvas, optional downscale, pack, and store
+async function processImage(imageUrl, options = {}) {
+  try {
+    ensureControlPanel();
+
+    const maxDim = (typeof options.maxDimension === 'number') ? options.maxDimension : pcConfig.maxDimension;
+    const compression = options.compression || pcConfig.compression || 'none';
+
+    // clear previous point cloud container
+    const container = document.getElementById('pointcloud-container');
+    while (container.firstChild) container.removeChild(container.firstChild);
+
+    const imageBitmap = await loadImageBitmap(imageUrl);
+    if (!imageBitmap) throw new Error('Failed to create ImageBitmap');
+
+    let targetWidth = imageBitmap.width;
+    let targetHeight = imageBitmap.height;
+
+    if (maxDim > 0) {
+      const longest = Math.max(imageBitmap.width, imageBitmap.height);
+      if (longest > maxDim) {
+        const scale = maxDim / longest;
+        targetWidth = Math.max(1, Math.floor(imageBitmap.width * scale));
+        targetHeight = Math.max(1, Math.floor(imageBitmap.height * scale));
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+    const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+
+    const pixelBytes = packPixels(imageData, targetWidth, targetHeight);
+
+    // Store to cache (binary) and then load
+    await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, compression);
+    await loadPointCloudFromStorage();
+  } catch (e) {
+    console.error('Error processing image:', e);
+  }
+}
+
+async function loadImageBitmap(imageUrl) {
+  if (imageUrl.startsWith('data:')) {
+    return await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = imageUrl;
+      img.crossOrigin = 'Anonymous';
+      img.onload = async () => { resolve(await createImageBitmap(img)); };
+      img.onerror = reject;
+    });
+  } else {
+    const resp = await fetch(imageUrl, { mode: 'cors' });
+    const blob = await resp.blob();
+    return await createImageBitmap(blob);
+  }
+}
+
+// On load, ensure panel exists and try to render any cached data
+ensureControlPanel();
 loadPointCloudFromStorage();
 
-// LZString should be included in the HTML <script>
+// LZString and optionally pako should be included in the HTML for compression support.
