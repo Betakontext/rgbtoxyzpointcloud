@@ -69,7 +69,11 @@ function ensureControlPanel() {
     }
   }, 300);
 
-  maxDimInput.addEventListener('change', onMaxDimChange);
+  maxDimInput.addEventListener('input', () => {
+    const v = parseInt(maxDimInput.value, 10);
+    pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
+    processImage(sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY), { maxDimension: pcConfig.maxDimension });
+  });
 
   reloadBtn.addEventListener('click', async () => {
     const last = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
