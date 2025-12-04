@@ -59,9 +59,9 @@ function ensureControlPanel() {
 
   clearBtn.addEventListener('click', async () => {
     await clearCacheAndStorage();
-    // Remove renderer from DOM
     const container = document.getElementById('pointcloud-container');
     while (container.firstChild) container.removeChild(container.firstChild);
+    document.getElementById('fileInput').value = ''; // Allow re-upload
     alert('Cache and localStorage backup cleared.');
   });
 }
