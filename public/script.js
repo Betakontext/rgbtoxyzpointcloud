@@ -42,7 +42,6 @@ function ensureControlPanel() {
     <div style="margin-bottom:6px;"><strong>PointCloud Controls</strong></div>
     <label>Max dimension (px, 0 = full): <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}" style="width:80px;" /></label>
     <div style="height:6px"></div>
-    <button id="pc-reload-image">Reload image at current resolution</button>
     <div style="height:6px"></div>
     <button id="pc-clear-cache">Clear Cache</button>
   `;
@@ -50,24 +49,7 @@ function ensureControlPanel() {
   document.body.appendChild(panel);
 
   const maxDimInput = document.getElementById('pc-max-dim');
-  const reloadBtn = document.getElementById('pc-reload-image');
   const clearBtn = document.getElementById('pc-clear-cache');
-
-  // Debounced change handler so rapid edits don't retrigger many loads
-  const onMaxDimChange = debounce(async () => {
-    const v = parseInt(maxDimInput.value, 10);
-    pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
-    console.log('pcConfig.maxDimension =', pcConfig.maxDimension);
-
-    // If we have a last image, automatically reload it at the new resolution
-    const last = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
-    if (last) {
-      await processImage(last, { maxDimension: pcConfig.maxDimension });
-    } else {
-      // If no last, attempt to load from cache for the current resolution
-      await loadPointCloudFromStorage();
-    }
-  }, 300);
 
   maxDimInput.addEventListener('input', () => {
     const v = parseInt(maxDimInput.value, 10);
@@ -75,17 +57,11 @@ function ensureControlPanel() {
     processImage(sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY), { maxDimension: pcConfig.maxDimension });
   });
 
-  reloadBtn.addEventListener('click', async () => {
-    const last = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
-    if (!last) {
-      alert('No previously loaded image found. Upload an image first.');
-      return;
-    }
-    await processImage(last, { maxDimension: pcConfig.maxDimension });
-  });
-
   clearBtn.addEventListener('click', async () => {
     await clearCacheAndStorage();
+    // Remove renderer from DOM
+    const container = document.getElementById('pointcloud-container');
+    while (container.firstChild) container.removeChild(container.firstChild);
     alert('Cache and localStorage backup cleared.');
   });
 }
