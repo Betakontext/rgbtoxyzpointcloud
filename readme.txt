@@ -1,8 +1,7 @@
 
 This is Betakontext/rgbtoxyzpointcloud
-For full documentation see: https://github.com/Betakontext/rgbtoxyzpointcloud
 
-This program converts the RGB values of a picture file into XYZ coordinates. Each point gets the color value of the original pixel.
+The little JS program converts the RGB values of a picture file into XYZ coordinates. Each point gets the color value of the original pixel.
 
 ------------------
 
@@ -10,7 +9,7 @@ This program converts the RGB values of a picture file into XYZ coordinates. Eac
 
 https://rgbtoxyzpointcloud.vercel.app/
 
-The main branch contains the files for an online Version using vercel.com for deployment cache API and local storage for the uploaded images to create a *.json to process the pointcloud: *.json lists of the extracted coordinates are stored in the session cache of your browser.
+The main branch contains the files for an online Version using vercel.com for deployment cache API and local storage for the uploaded images to create a *.json with rgb values used as xyz coordinates to process the pointcloud.
 
 ------------------
 
