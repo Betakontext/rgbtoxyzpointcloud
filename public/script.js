@@ -51,11 +51,59 @@ function ensureControlPanel() {
   const maxDimInput = document.getElementById('pc-max-dim');
   const clearBtn = document.getElementById('pc-clear-cache');
 
-  maxDimInput.addEventListener('input', () => {
-    const v = parseInt(maxDimInput.value, 10);
-    pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
-    processImage(sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY), { maxDimension: pcConfig.maxDimension });
-  });
+  // Erstelle einfaches Control Panel für VR
+function createVRControlPanel() {
+    const panel = document.createElement('div');
+    panel.id = 'vr-control-panel';
+    panel.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: sans-serif;
+        font-size: 12px;
+        z-index: 10000;
+        max-width: 200px;
+    `;
+
+    panel.innerHTML = `
+        <div style="margin-bottom: 10px;"><strong>PointCloud VR</strong></div>
+        <label style="display: block; margin-bottom: 8px;">
+            Max Dimension (px):
+            <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}"
+                   style="width: 70px; padding: 4px;">
+        </label>
+        <button id="pc-clear-cache" style="width: 100%; padding: 6px; cursor: pointer;">
+            Clear Cache
+        </button>
+    `;
+
+    document.body.appendChild(panel);
+
+    // Event Listener
+    const maxDimInput = document.getElementById('pc-max-dim');
+    const clearBtn = document.getElementById('pc-clear-cache');
+
+    maxDimInput.addEventListener('input', () => {
+        const v = parseInt(maxDimInput.value, 10);
+        pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
+        processImage(
+            sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY),
+            { maxDimension: pcConfig.maxDimension }
+        );
+    });
+
+    clearBtn.addEventListener('click', async () => {
+        await clearCacheAndStorage();
+        document.getElementById('fileInput').value = '';
+        const oldCloud = document.querySelector('[point-cloud]');
+        if (oldCloud) oldCloud.remove();
+        alert('Cache and localStorage backup cleared.');
+    });
+}
 
   clearBtn.addEventListener('click', async () => {
     await clearCacheAndStorage();
@@ -183,65 +231,52 @@ async function clearCacheAndStorage() {
   }
 }
 
-// Render point cloud from pixel bytes (RGB8)
-function renderPointCloudFromBytes(width, height, pixelBytes) {
-  // Remove previous renderer if any
-  const container = document.getElementById('pointcloud-container');
-  while (container.firstChild) container.removeChild(container.firstChild);
 
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 0, 500);
-  const renderer = new THREE.WebGLRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  container.appendChild(renderer.domElement);
+// A-Frame Component für Punktwolken-Rendering
+AFRAME.registerComponent('point-cloud', {
+    schema: {
+        vertices: { type: 'string' },
+        colors: { type: 'string' },
+        size: { default: 0.1 }
+    },
 
-  const geometry = new THREE.BufferGeometry();
-  const numPixels = width * height;
-  const vertices = new Float32Array(numPixels * 3);
-  const colors = new Float32Array(numPixels * 3);
+    init: function() {
+        const data = this.data;
+        const el = this.el;
 
-  let v = 0;
-  for (let i = 0, p = 0; i < numPixels; i++, p += 3) {
-    const r = pixelBytes[p];
-    const g = pixelBytes[p + 1];
-    const b = pixelBytes[p + 2];
+        // Parse Daten
+        const verticesArray = data.vertices.split(',').map(Number);
+        const colorsArray = data.colors.split(',').map(Number);
 
-    // Map pixel colors to 3D coordinates (keeps your previous color->position mapping)
-    const x = ((r / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-    const y = ((g / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-    const z = ((b / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
+        // Three.js Geometrie erstellen
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position',
+            new THREE.Float32BufferAttribute(verticesArray, 3));
+        geometry.setAttribute('color',
+            new THREE.Float32BufferAttribute(colorsArray, 3));
 
-    vertices[v * 3 + 0] = x;
-    vertices[v * 3 + 1] = y;
-    vertices[v * 3 + 2] = z;
+        // Material
+        const material = new THREE.PointsMaterial({
+            size: data.size,
+            vertexColors: true,
+            sizeAttenuation: true
+        });
 
-    colors[v * 3 + 0] = r / 255;
-    colors[v * 3 + 1] = g / 255;
-    colors[v * 3 + 2] = b / 255;
+        // Points Object
+        const points = new THREE.Points(geometry, material);
+        el.setObject3D('mesh', points);
+    },
 
-    v++;
-  }
+    update: function(oldData) {
+        if (oldData.vertices !== this.data.vertices) {
+            this.init();
+        }
+    },
 
-  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geometry.computeBoundingSphere();
-
-  const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
-  const points = new THREE.Points(geometry, material);
-  scene.add(points);
-
-  const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableZoom = true;
-
-  (function animate() {
-    requestAnimationFrame(animate);
-    points.rotation.x += 0.001;
-    points.rotation.y += 0.001;
-    controls.update();
-    renderer.render(scene, camera);
-  })();
-}
+    remove: function() {
+        this.el.removeObject3D('mesh');
+    }
+});
 
 // Top-level loader from cache (used after storing)
 async function loadPointCloudFromStorage() {
@@ -321,8 +356,7 @@ async function loadImageBitmap(imageUrl) {
   }
 }
 
-// On load, ensure panel exists and try to render any cached data for current resolution
-ensureControlPanel();
+createVRControlPanel();
 loadPointCloudFromStorage();
 
 // LZString should be included in the HTML for the small localStorage backup support.
