@@ -59,9 +59,11 @@ function ensureControlPanel() {
 
   clearBtn.addEventListener('click', async () => {
     await clearCacheAndStorage();
+    // Remove renderer from DOM
     const container = document.getElementById('pointcloud-container');
-    while (container.firstChild) container.removeChild(container.firstChild);
-    document.getElementById('fileInput').value = ''; // Allow re-upload
+    while (container.firstChild) container.firstChild.remove();
+     // Reset config to ensure fresh load
+    pcConfig.maxDimension = parseInt(document.getElementById('pc-max-dim').value) || 0;
     alert('Cache and localStorage backup cleared.');
   });
 }
