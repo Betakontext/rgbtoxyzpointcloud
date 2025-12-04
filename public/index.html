@@ -1,19 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Pixel Point Cloud</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Pixel Point Cloud VR</title>
+    <link rel="stylesheet" href="styles.css">
+
+    <!-- A-Frame -->
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+
+    <!-- Three.js (für A-Frame) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js"></script>
+
+    <!-- LZString -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
+
 <body>
-  <input id="fileInput" type="file" accept="image/*,.avif,.heif,.tiff,.tif" /><div id="loading" style="display: none;">Processing...</div>
-  <div id="message"></div>
-  <div id="pointcloud-container" style="width: 100vw; height: 100vh;"></div>
-  <script src="upload.js"></script>
-  <script src="script.js"></script>
+    <input id="fileInput" type="file" accept="image/*,.avif,.heif,.tiff,.tif" />
+    <div id="loading" style="display: none;">Processing...</div>
+    <div id="message"></div>
+
+    <!-- A-Frame Scene -->
+    <a-scene id="pointcloud-container" embedded>
+        <a-entity id="camera-rig" movement-controls="speed: 0.5">
+            <a-camera id="main-camera" position="0 1.6 0" look-controls></a-camera>
+            <a-entity laser-controls="hand: left"></a-entity>
+            <a-entity laser-controls="hand: right"></a-entity>
+        </a-entity>
+
+        <a-sky color="#000020"></a-sky>
+        <a-plane position="0 0 0" rotation="-90 0 0" width="100" height="100"
+                 color="#1a1a1a" shadow></a-plane>
+    </a-scene>
+
+    <script src="upload.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
