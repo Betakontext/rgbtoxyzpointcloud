@@ -83,15 +83,6 @@ function createVRControlPanel() {
     });
 }
 
-  clearBtn.addEventListener('click', async () => {
-    await clearCacheAndStorage();
-    const container = document.getElementById('pointcloud-container');
-    while (container.firstChild) container.removeChild(container.firstChild);
-    document.getElementById('fileInput').value = ''; // Allow re-upload
-    alert('Cache and localStorage backup cleared.');
-  });
-}
-
 function getKeysFor(maxDim) {
   const dim = (typeof maxDim === 'number') ? maxDim : pcConfig.maxDimension;
   return { binKey: `${BIN_KEY_PREFIX}${dim}.bin`, metaKey: `${META_KEY_PREFIX}${dim}.json` };
