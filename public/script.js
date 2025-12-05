@@ -229,12 +229,19 @@ function fitPointCloudToView(entity, padding = 1.1) {
   entity.object3D.updateMatrixWorld(true);
 }
 
-/*--- Rendering -----------------------------------------------------------*/
+/*=====================================================================
+  renderPointCloudFromBytes – neues Bild rendern
+=====================================================================*/
 function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
   const scene = document.querySelector('a-scene');
-  if (!scene) { console.error('[PC] no A‑Frame scene'); return; }
+  if (!scene) {
+    console.error('[PC] no A‑Frame scene');
+    return;
+  }
 
-  // 1️⃣ Entität holen / anlegen
+  // --------------------------------------------------------------
+  // 1️⃣ Entity holen / anlegen
+  // --------------------------------------------------------------
   let entity = document.getElementById('current-pointcloud');
   if (!entity) {
     entity = document.createElement('a-entity');
@@ -243,12 +250,23 @@ function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
     scene.appendChild(entity);
   }
 
-  // 2️⃣ Alte GPU‑Ressourcen freigeben
+  // --------------------------------------------------------------
+  // 2️⃣ Alte GPU‑Ressourcen & Rotation entfernen
+  // --------------------------------------------------------------
   disposePointCloudEntity(entity);               // alte Geometrie/Material freigeben
-  entity.removeAttribute('animation__rotate');   // <‑‑ WICHTIG: laufende Drehung stoppen
+  entity.removeAttribute('animation__rotate');   // laufende Dreh‑Animation stoppen
 
+  // **WICHTIG:** Rotationsmatrix zurücksetzen, sonst bleibt das alte
+  // Dreh‑Winkel erhalten. Danach wird die Position später von
+  // fitPointCloudToView neu berechnet.
+  entity.object3D.rotation.set(0, 0, 0);         // <‑‑ Reset zur Identität
+  // (optional) Position ebenfalls zurücksetzen, damit fit… nicht von
+  // einer evtl. verschobenen Ausgangsposition ausgeht:
+  // entity.object3D.position.set(0, 0, 0);
 
-  // 3️⃣ Decimation – Quest‑freundlich
+  // --------------------------------------------------------------
+  // 3️⃣ Decimation (Quest‑freundlich)
+  // --------------------------------------------------------------
   const total   = w * h;
   const stride  = Math.max(1, Math.ceil(Math.sqrt(total / maxPoints)));
   const outW    = Math.ceil(w / stride);
@@ -258,6 +276,7 @@ function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
   const colors    = new Float32Array(count * 3);
   const scale = 5;
   let k = 0;
+
   for (let y = 0; y < h; y += stride) {
     for (let x = 0; x < w; x += stride) {
       const idx = (y * w + x) * 3;
@@ -271,7 +290,9 @@ function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
     }
   }
 
+  // --------------------------------------------------------------
   // 4️⃣ BufferGeometry bauen
+  // --------------------------------------------------------------
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute('color',    new THREE.BufferAttribute(colors, 3));
@@ -288,8 +309,10 @@ function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
   const points = new THREE.Points(geometry, material);
   entity.setObject3D('mesh', points);
 
-  // 5️⃣ Sichtfeld‑Anpassung – **immer nach dem ersten Render!**
-  fitPointCloudToView(entity, 1.1);
+  // --------------------------------------------------------------
+  // 5️⃣ Sichtfeld‑Anpassung – **immer nach dem Render!**
+  // --------------------------------------------------------------
+  fitPointCloudToView(entity, 1.1);   // 10 % Rand, mittig vor Kamera
 }
 
 /*--- Entity‑Dispose ------------------------------------------------------*/
