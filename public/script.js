@@ -134,7 +134,7 @@ function fitPointCloudToView(entity, padding = 1.1) {
 
   const geom = points.geometry;
   if (!geom.boundingSphere) geom.computeBoundingSphere();
-  const r = geom.boundingSphere.radius || 1;
+  const r = Math.max(geom.boundingSphere?.radius || 1, 0.0001);
 
   // Vertikales FOV und horizontales FOV
   const fovV = THREE.MathUtils.degToRad(camObj.fov || 60);
