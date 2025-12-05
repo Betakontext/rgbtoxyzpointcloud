@@ -78,10 +78,9 @@ function createVRControlPanel() {
     const clearBtn = document.getElementById('pc-clear-cache');
     clearBtn.addEventListener('click', async () => {
         await clearCacheAndStorage();
+        isXYZMode = false;
         const xyzBtn = document.getElementById('pc-xyz-transform');
-        xyzBtn.addEventListener('click', () => {
-            transformToXYZ();
-        });
+        xyzBtn.textContent = 'XYZ Pointcloud';
         const fileInput = document.getElementById('fileInput');
         if (fileInput) fileInput.value = '';
         const oldCloud = document.querySelector('[point-cloud]');
@@ -344,6 +343,75 @@ function transformToXYZ() {
     }
 
     animate();
+}
+
+function revertToRGB() {
+    const pointCloudEntity = document.querySelector('[point-cloud]');
+    if (!pointCloudEntity) {
+        console.warn('No point cloud found');
+        return;
+    }
+
+    const points = pointCloudEntity.getObject3D('mesh');
+    if (!points) return;
+
+    const geometry = points.geometry;
+    const positions = geometry.attributes.position.array;
+    const colors = geometry.attributes.color.array;
+
+    // Speichere aktuelle XYZ-Positionen
+    const xyzPositions = new Float32Array(positions);
+    const targetPositions = new Float32Array(positions.length);
+
+    // Berechne Original-Positionen basierend auf RGB (umgekehrt)
+    for (let i = 0; i < positions.length; i += 3) {
+        const r = colors[i] * 255;
+        const g = colors[i + 1] * 255;
+        const b = colors[i + 2] * 255;
+
+        // Berechne die ursprünglichen Gitter-Positionen
+        const pixelIndex = i / 3;
+        const width = Math.sqrt(positions.length / 3); // Näherung
+        const x = pixelIndex % width;
+        const y = Math.floor(pixelIndex / width);
+
+        const scale = 5;
+        targetPositions[i] = (x / width - 0.5) * scale;
+        targetPositions[i + 1] = -(y / width - 0.5) * scale;
+        targetPositions[i + 2] = 0;
+    }
+
+    // Animation (umgekehrt)
+    let progress = 0;
+    const duration = 2000; // 2 Sekunden
+    const startTime = Date.now();
+
+    // Entferne Rotation vor Animation
+    pointCloudEntity.removeAttribute('animation__rotate');
+
+    function animateReverse() {
+        const elapsed = Date.now() - startTime;
+        progress = Math.min(elapsed / duration, 1);
+
+        // Easing function (easeInOutCubic)
+        const eased = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        // Interpoliere Positionen (XYZ → RGB)
+        for (let i = 0; i < positions.length; i++) {
+            positions[i] = xyzPositions[i] + (targetPositions[i] - xyzPositions[i]) * eased;
+        }
+
+        geometry.attributes.position.needsUpdate = true;
+        geometry.computeBoundingSphere();
+
+        if (progress < 1) {
+            requestAnimationFrame(animateReverse);
+        }
+    }
+
+    animateReverse();
 }
 
 function startRotation(entity) {
