@@ -57,10 +57,12 @@ function setXYZButtonState() {
     btn.style.background = '#4CAF50';
   }
 }
+
 function setXYZButtonEnabled(enabled) {
   const btn = document.getElementById('pc-xyz-transform');
   if (btn) btn.disabled = !enabled;
 }
+
 function cancelActiveTransform() {
   transformToken++;
   isAnimatingTransform = false;
@@ -109,17 +111,18 @@ function createVRControlPanel() {
   const xyzBtn = document.getElementById('pc-xyz-transform');
   if (xyzBtn) {
     xyzBtn.addEventListener('click', () => {
-      if (isAnimatingTransform) return; // während Animation nicht toggeln
       const entity = document.getElementById('current-pointcloud');
       if (!entity || !entity.getObject3D('mesh')) return;
 
-      if (!isXYZMode) {
-        transformToXYZ();
-        isXYZMode = true;
-      } else {
-        revertToRGB(); // setzt isXYZMode am Ende wieder auf false
+      if (!isAnimatingTransform) { // Überprüfung auf laufende Animation
+        if (!isXYZMode) {
+          transformToXYZ();
+          isXYZMode = true;
+        } else {
+          revertToRGB(); // setzt isXYZMode am Ende wieder auf false
+        }
+        setXYZButtonState(); // Button-Status aktualisieren
       }
-      setXYZButtonState();
     });
   }
 
@@ -129,7 +132,7 @@ function createVRControlPanel() {
     const v = parseInt(maxDimInput.value, 10);
     pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
 
-    // laufende Animation abbrechen, UI zurücksetzen
+    // Laufende Animation abbrechen, UI zurücksetzen
     cancelActiveTransform();
     isXYZMode = false;
     setXYZButtonState();
@@ -167,9 +170,9 @@ function packPixels(imageData, width, height) {
   const data = imageData.data; // RGBA
   let p = 0;
   for (let i = 0; i < data.length; i += 4) {
-    pixels[p++] = data[i];
-    pixels[p++] = data[i + 1];
-    pixels[p++] = data[i + 2];
+    pixels[p++] = data[i];     // r
+    pixels[p++] = data[i + 1]; // g
+    pixels[p++] = data[i + 2]; // b
   }
   return pixels;
 }
@@ -278,6 +281,7 @@ function fitPointCloudToView(entity, padding = 1.1) {
   if (!camEl) return;
   const camObj = camEl.getObject3D('camera');
   if (!camObj) return;
+
   const points = entity.getObject3D('mesh');
   if (!points) return;
 
@@ -333,6 +337,7 @@ function transformToXYZ() {
     if (myToken !== transformToken) return; // abgebrochen
     const elapsed = Date.now() - startTime;
     progress = Math.min(elapsed / duration, 1);
+
     const eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
     for (let i = 0; i < positions.length; i++) {
@@ -394,6 +399,7 @@ function revertToRGB() {
     if (myToken !== transformToken) return; // abgebrochen
     const elapsed = Date.now() - startTime;
     progress = Math.min(elapsed / duration, 1);
+
     const eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
     for (let i = 0; i < positions.length; i++) {
