@@ -5,25 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>3D Pixel Point Cloud VR</title>
   <link rel="stylesheet" href="styles.css" />
-  <!-- A-Frame (lädt THREE.js automatisch) -->
+
+  <!-- A-Frame (lädt THREE automatisch) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
-  <!-- LZString -->
+
+  <!-- LZString (für Backup) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
 <body>
+  <!-- Deine UI -->
   <input id="fileInput" type="file" accept="image/*,.avif,.heif,.tiff,.tif" />
   <div id="loading" style="display:none;">Processing...</div>
   <div id="message"></div>
 
-  <!-- A-Frame Scene (eine einzige!) -->
+  <!-- Eine einzige Scene -->
   <a-scene
     id="pointcloud-container"
     background="color: #000000"
     renderer="antialias: false; precision: mediump; alpha: false; powerPreference: high-performance"
     webxr="requiredFeatures: local-floor; optionalFeatures: bounded-floor,hand-tracking"
-    embedded background="color: #000000">
-    <!-- embedded entfernen, wenn Vollbild/VR-App bevorzugt -->
+    embedded
+  >
     <a-entity id="camera-rig" movement-controls="speed: 0.5">
       <a-camera id="main-camera" position="0 1.6 0" look-controls></a-camera>
       <a-entity laser-controls="hand: left"></a-entity>
@@ -31,6 +34,44 @@
     </a-entity>
   </a-scene>
 
+  <!-- Adaptives Tuning für Desktop vs. Headset -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const sceneEl = document.querySelector('a-scene');
+
+      // Wenn Renderer fertig ist, PixelRatio/Antialias je Gerät anpassen
+      sceneEl.addEventListener('rendererinitialized', () => {
+        const r = sceneEl.renderer;
+        const ua = navigator.userAgent || '';
+        const isQuest = /OculusBrowser|Wolvic|Quest/i.test(ua) || AFRAME.utils.device.isMobileVR();
+        const isMobile = AFRAME.utils.device.isMobile();
+
+        // PixelRatio begrenzen: spart Fill-Rate/VRAM auf Headsets
+        const maxPR = isQuest ? 1.0 : (isMobile ? 1.2 : 1.5);
+        r.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPR));
+
+        // Antialias: auf Desktop erlauben, auf Quest aus
+        const aa = !isQuest && !isMobile;
+        sceneEl.setAttribute('renderer', `antialias: ${aa}; precision: ${isQuest ? 'mediump' : 'highp'}; alpha: false; powerPreference: high-performance`);
+
+        // Bewegung etwas schneller im Nicht-VR (Desktop) Kontext
+        const rig = document.getElementById('camera-rig');
+        if (rig) {
+          rig.setAttribute('movement-controls', `speed: ${isQuest ? 0.5 : 0.8}`);
+        }
+      });
+
+      // WebGL Context Loss Debug (optional)
+      sceneEl.addEventListener('render-target-loaded', () => {
+        const glCanvas = sceneEl.renderer?.getContext?.()?.canvas;
+        if (!glCanvas) return;
+        glCanvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.warn('WebGL context lost'); });
+        glCanvas.addEventListener('webglcontextrestored', () => { console.warn('WebGL context restored'); });
+      });
+    });
+  </script>
+
+  <!-- Deine App-Skripte -->
   <script src="upload.js"></script>
   <script src="script.js"></script>
 </body>
