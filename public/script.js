@@ -244,7 +244,9 @@ function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
   }
 
   // 2️⃣ Alte GPU‑Ressourcen freigeben
-  disposePointCloudEntity(entity);
+  disposePointCloudEntity(entity);               // alte Geometrie/Material freigeben
+  entity.removeAttribute('animation__rotate');   // <‑‑ WICHTIG: laufende Drehung stoppen
+
 
   // 3️⃣ Decimation – Quest‑freundlich
   const total   = w * h;
