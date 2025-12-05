@@ -89,6 +89,34 @@ function createVRControlPanel() {
     });
 }
 
+// XYZ Transform Button Handler
+let isXYZMode = false;
+
+const xyzBtn = document.getElementById('pc-xyz-transform');
+if (xyzBtn) {
+    xyzBtn.addEventListener('click', () => {
+        const pointCloudEntity = document.querySelector('[point-cloud]');
+        if (!pointCloudEntity) {
+            console.warn('No point cloud found');
+            return;
+        }
+
+        if (!isXYZMode) {
+            console.log('Starting XYZ transformation');
+            transformToXYZ();
+            isXYZMode = true;
+            xyzBtn.textContent = 'Back to RGB';
+            xyzBtn.style.background = '#FF9800';
+        } else {
+            console.log('Reverting to RGB');
+            revertToRGB();
+            isXYZMode = false;
+            xyzBtn.textContent = 'XYZ Pointcloud';
+            xyzBtn.style.background = '#4CAF50';
+        }
+    });
+}
+
 function getKeysFor(maxDim) {
   const dim = (typeof maxDim === 'number') ? maxDim : pcConfig.maxDimension;
   return { binKey: `${BIN_KEY_PREFIX}${dim}.bin`, metaKey: `${META_KEY_PREFIX}${dim}.json` };
