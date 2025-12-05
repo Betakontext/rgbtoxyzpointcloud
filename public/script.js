@@ -21,50 +21,100 @@ function debounce(fn, wait) {
   };
 }
 
-// Create a simple control panel if not present in DOM
-function ensureControlPanel() {
-  if (document.getElementById('pc-control-panel')) return;
 
-  const panel = document.createElement('div');
-  panel.id = 'pc-control-panel';
-  panel.style.position = 'fixed';
-  panel.style.top = '10px';
-  panel.style.right = '10px';
-  panel.style.background = 'rgba(255,255,255,0.95)';
-  panel.style.border = '1px solid #ccc';
-  panel.style.padding = '8px';
-  panel.style.zIndex = 9999;
-  panel.style.fontFamily = 'sans-serif';
-  panel.style.fontSize = '13px';
-  panel.style.maxWidth = '240px';
 
-  panel.innerHTML = `
-    <div style="margin-bottom:6px;"><strong>PointCloud Controls</strong></div>
-    <label>Max dimension (px, 0 = full): <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}" style="width:80px;" /></label>
-    <div style="height:6px"></div>
-    <div style="height:6px"></div>
-    <button id="pc-clear-cache">Clear Cache</button>
-  `;
+// Erstelle einfaches Control Panel für VR
+function createVRControlPanel() {
+    const existingPanel = document.getElementById('vr-control-panel');
+    if (existingPanel) return; // Bereits vorhanden
 
-  document.body.appendChild(panel);
+    const panel = document.createElement('div');
+    panel.id = 'vr-control-panel';
+    panel.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 15px;
+        border-radius: 8px;
+        font-family: sans-serif;
+        font-size: 12px;
+        z-index: 10000;
+        max-width: 200px;
+    `;
 
-  const maxDimInput = document.getElementById('pc-max-dim');
-  const clearBtn = document.getElementById('pc-clear-cache');
+    panel.innerHTML = `
+      <div style="margin-bottom: 10px;"><strong>PointCloud VR</strong></div>
+      <label style="display: block; margin-bottom: 8px;">
+          Max Dimension (px):
+          <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}"
+                style="width: 70px; padding: 4px;">
+      </label>
+      <button id="pc-xyz-transform" style="width: 100%; padding: 6px; cursor: pointer; margin-bottom: 8px; background: #4CAF50; color: white;">
+          XYZ Pointcloud
+      </button>
+      <button id="pc-clear-cache" style="width: 100%; padding: 6px; cursor: pointer;">
+          Clear Cache
+      </button>
+    `;
 
-  maxDimInput.addEventListener('input', () => {
-    const v = parseInt(maxDimInput.value, 10);
-    pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
-    processImage(sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY), { maxDimension: pcConfig.maxDimension });
-  });
+    document.body.appendChild(panel);
 
-  clearBtn.addEventListener('click', async () => {
-    await clearCacheAndStorage();
-    const container = document.getElementById('pointcloud-container');
-    while (container.firstChild) container.removeChild(container.firstChild);
-    document.getElementById('fileInput').value = ''; // Allow re-upload
-    alert('Cache and localStorage backup cleared.');
-  });
+    // XYZ Transform Button Handler - HIER HINZUFÜGEN
+    let isXYZMode = false;
+
+    const xyzBtn = document.getElementById('pc-xyz-transform');
+    if (xyzBtn) {
+        xyzBtn.addEventListener('click', () => {
+            const pointCloudEntity = document.querySelector('[point-cloud]');
+            if (!pointCloudEntity) {
+                console.warn('No point cloud found');
+                return;
+            }
+
+            if (!isXYZMode) {
+                console.log('Starting XYZ transformation');
+                transformToXYZ();
+                isXYZMode = true;
+                xyzBtn.textContent = 'Back to RGB';
+                xyzBtn.style.background = '#FF9800';
+            } else {
+                console.log('Reverting to RGB');
+                revertToRGB();
+                isXYZMode = false;
+                xyzBtn.textContent = 'XYZ Pointcloud';
+                xyzBtn.style.background = '#4CAF50';
+            }
+        });
+    }
+
+    // Max Dimension Handler
+    const maxDimInput = document.getElementById('pc-max-dim');
+    maxDimInput.addEventListener('input', () => {
+        const v = parseInt(maxDimInput.value, 10);
+        pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
+        const lastImage = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
+        if (lastImage) {
+            processImage(lastImage, { maxDimension: pcConfig.maxDimension });
+        }
+    });
+
+    // Clear Cache Handler
+    const clearBtn = document.getElementById('pc-clear-cache');
+    clearBtn.addEventListener('click', async () => {
+        await clearCacheAndStorage();
+        isXYZMode = false;
+        const xyzBtn = document.getElementById('pc-xyz-transform');
+        xyzBtn.textContent = 'XYZ Pointcloud';
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) fileInput.value = '';
+        const oldCloud = document.querySelector('[point-cloud]');
+        if (oldCloud) oldCloud.remove();
+        alert('Cache cleared.');
+    });
 }
+
 
 function getKeysFor(maxDim) {
   const dim = (typeof maxDim === 'number') ? maxDim : pcConfig.maxDimension;
@@ -183,64 +233,226 @@ async function clearCacheAndStorage() {
   }
 }
 
-// Render point cloud from pixel bytes (RGB8)
-function renderPointCloudFromBytes(width, height, pixelBytes) {
-  // Remove previous renderer if any
-  const container = document.getElementById('pointcloud-container');
-  while (container.firstChild) container.removeChild(container.firstChild);
 
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  camera.position.set(0, 0, 500);
-  const renderer = new THREE.WebGLRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  container.appendChild(renderer.domElement);
+//	A-Frame	Component für Punktwolken-Rendering
+AFRAME.registerComponent('point-cloud', {
+    schema: {
+        vertices: { type: 'string' },
+        colors: { type: 'string' },
+        size: { default: 0.1 }
+    },
 
-  const geometry = new THREE.BufferGeometry();
-  const numPixels = width * height;
-  const vertices = new Float32Array(numPixels * 3);
-  const colors = new Float32Array(numPixels * 3);
+    init: function() {
+        console.log('point-cloud component init');
+        const data = this.data;
+        const el = this.el;
 
-  let v = 0;
-  for (let i = 0, p = 0; i < numPixels; i++, p += 3) {
-    const r = pixelBytes[p];
-    const g = pixelBytes[p + 1];
-    const b = pixelBytes[p + 2];
+        try {
+            // Parse Daten
+            const verticesArray = data.vertices.split(',').map(Number);
+            const colorsArray = data.colors.split(',').map(Number);
 
-    // Map pixel colors to 3D coordinates (keeps your previous color->position mapping)
-    const x = ((r / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-    const y = ((g / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
-    const z = ((b / 255) * 500 - 250) + (Math.random() - 0.5) * 10;
+            console.log(`Parsed ${verticesArray.length / 3} vertices and ${colorsArray.length / 3} colors`);
 
-    vertices[v * 3 + 0] = x;
-    vertices[v * 3 + 1] = y;
-    vertices[v * 3 + 2] = z;
+            // Three.js Geometrie erstellen
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position',
+                new THREE.BufferAttribute(new Float32Array(verticesArray), 3));
+            geometry.setAttribute('color',
+                new THREE.BufferAttribute(new Float32Array(colorsArray), 3));
 
-    colors[v * 3 + 0] = r / 255;
-    colors[v * 3 + 1] = g / 255;
-    colors[v * 3 + 2] = b / 255;
+            // Material
+            const material = new THREE.PointsMaterial({
+                size: data.size,
+                vertexColors: true,
+                sizeAttenuation: true
+            });
 
-    v++;
-  }
+            /*
+            // Optional Material : Downsizing for VR
+            const material = new THREE.PointsMaterial({
+                size: data.size,
+                vertexColors: true,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            */
 
-  geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-  geometry.computeBoundingSphere();
+            // Points Object
+            const points = new THREE.Points(geometry, material);
 
-  const material = new THREE.PointsMaterial({ size: 0.5, vertexColors: true });
-  const points = new THREE.Points(geometry, material);
-  scene.add(points);
+            // Überprüfe, ob points ein gültiges Object3D ist
+            if (!(points instanceof THREE.Object3D)) {
+                console.error('points is not a THREE.Object3D:', points);
+                return;
+            }
 
-  const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableZoom = true;
+            console.log('Setting object3D:', points);
+            el.setObject3D('mesh', points);
+            console.log('point-cloud component initialized successfully');
+        } catch (e) {
+            console.error('Error in point-cloud component init:', e);
+        }
+    },
 
-  (function animate() {
-    requestAnimationFrame(animate);
-    points.rotation.x += 0.001;
-    points.rotation.y += 0.001;
-    controls.update();
-    renderer.render(scene, camera);
-  })();
+    update: function(oldData) {
+        if (oldData.vertices !== this.data.vertices) {
+            console.log('point-cloud data changed, reinitializing');
+            this.init();
+        }
+    },
+
+    remove: function() {
+        console.log('Removing point-cloud component');
+        this.el.removeObject3D('mesh');
+    }
+});
+
+function transformToXYZ() {
+    const pointCloudEntity = document.querySelector('[point-cloud]');
+    if (!pointCloudEntity) {
+        console.warn('No point cloud found');
+        return;
+    }
+
+    const points = pointCloudEntity.getObject3D('mesh');
+    if (!points) return;
+
+    const geometry = points.geometry;
+    const positions = geometry.attributes.position.array;
+    const colors = geometry.attributes.color.array;
+
+    // Speichere Original-Positionen für Animation
+    const originalPositions = new Float32Array(positions);
+    const targetPositions = new Float32Array(positions.length);
+
+    // Berechne XYZ-Zielpositionen basierend auf RGB
+    for (let i = 0; i < positions.length; i += 3) {
+        const r = colors[i] * 255;
+        const g = colors[i + 1] * 255;
+        const b = colors[i + 2] * 255;
+
+        // RGB → XYZ Mapping (wie im ersten Script)
+        targetPositions[i]     = ((r / 255) * 50 - 25) + (Math.random() - 0.5);
+        targetPositions[i + 1] = ((g / 255) * 50 - 25) + (Math.random() - 0.5);
+        targetPositions[i + 2] = ((b / 255) * 50 - 25) + (Math.random() - 0.5);
+    }
+
+    // Animation
+    let progress = 0;
+    const duration = 2000; // 2 Sekunden
+    const startTime = Date.now();
+
+    function animate() {
+        const elapsed = Date.now() - startTime;
+        progress = Math.min(elapsed / duration, 1);
+
+        // Easing function (easeInOutCubic)
+        const eased = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        // Interpoliere Positionen
+        for (let i = 0; i < positions.length; i++) {
+            positions[i] = originalPositions[i] + (targetPositions[i] - originalPositions[i]) * eased;
+        }
+
+        geometry.attributes.position.needsUpdate = true;
+        geometry.computeBoundingSphere();
+
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            // Starte Rotation nach Animation
+            startRotation(pointCloudEntity);
+        }
+    }
+
+    animate();
+}
+
+function revertToRGB() {
+    const pointCloudEntity = document.querySelector('[point-cloud]');
+    if (!pointCloudEntity) {
+        console.warn('No point cloud found');
+        return;
+    }
+
+    const points = pointCloudEntity.getObject3D('mesh');
+    if (!points) return;
+
+    const geometry = points.geometry;
+    const positions = geometry.attributes.position.array;
+    const colors = geometry.attributes.color.array;
+
+    // Speichere aktuelle XYZ-Positionen
+    const xyzPositions = new Float32Array(positions);
+    const targetPositions = new Float32Array(positions.length);
+
+    // Berechne Original-Positionen basierend auf RGB (umgekehrt)
+    for (let i = 0; i < positions.length; i += 3) {
+        const r = colors[i] * 255;
+        const g = colors[i + 1] * 255;
+        const b = colors[i + 2] * 255;
+
+        // Berechne die ursprünglichen Gitter-Positionen
+        const pixelIndex = i / 3;
+        const width = Math.sqrt(positions.length / 3); // Näherung
+        const x = pixelIndex % width;
+        const y = Math.floor(pixelIndex / width);
+
+        const scale = 5;
+        targetPositions[i] = (x / width - 0.5) * scale;
+        targetPositions[i + 1] = -(y / width - 0.5) * scale;
+        targetPositions[i + 2] = 0;
+    }
+
+    // Animation (umgekehrt)
+    let progress = 0;
+    const duration = 2000; // 2 Sekunden
+    const startTime = Date.now();
+
+    // Entferne Rotation vor Animation
+    pointCloudEntity.removeAttribute('animation__rotate');
+
+    function animateReverse() {
+        const elapsed = Date.now() - startTime;
+        progress = Math.min(elapsed / duration, 1);
+
+        // Easing function (easeInOutCubic)
+        const eased = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        // Interpoliere Positionen (XYZ → RGB)
+        for (let i = 0; i < positions.length; i++) {
+            positions[i] = xyzPositions[i] + (targetPositions[i] - xyzPositions[i]) * eased;
+        }
+
+        geometry.attributes.position.needsUpdate = true;
+        geometry.computeBoundingSphere();
+
+        if (progress < 1) {
+            requestAnimationFrame(animateReverse);
+        }
+    }
+
+    animateReverse();
+}
+
+function startRotation(entity) {
+    // Entferne alte Animation falls vorhanden
+    entity.removeAttribute('animation__rotate');
+
+    // Füge Rotation hinzu
+    entity.setAttribute('animation__rotate', {
+        property: 'rotation',
+        to: '360 360 0',
+        loop: true,
+        dur: 60000,
+        easing: 'linear'
+    });
 }
 
 // Top-level loader from cache (used after storing)
@@ -255,55 +467,60 @@ async function loadPointCloudFromStorage() {
 
 // Process image: draw to canvas, optional downscale, pack, and store
 async function processImage(imageUrl, options = {}) {
-  try {
-    ensureControlPanel();
+    try {
+        // ENTFERNT: ensureControlPanel();
 
-    const maxDim = (typeof options.maxDimension === 'number') ? options.maxDimension : pcConfig.maxDimension;
+        const maxDim = (typeof options.maxDimension === 'number') ? options.maxDimension : pcConfig.maxDimension;
 
-    // Persist the last image Data URL so reloads/changes work without re-upload
-    if (imageUrl && imageUrl.startsWith('data:')) {
-      try {
-        sessionStorage.setItem(LAST_IMAGE_KEY, imageUrl);
-      } catch (e) {
-        try { localStorage.setItem(LAST_IMAGE_KEY, imageUrl); } catch (e2) { /* ignore */ }
-      }
+        // Persist the last image Data URL so reloads/changes work without re-upload
+        if (imageUrl && imageUrl.startsWith('data:')) {
+            try {
+                sessionStorage.setItem(LAST_IMAGE_KEY, imageUrl);
+            } catch (e) {
+                try { localStorage.setItem(LAST_IMAGE_KEY, imageUrl); } catch (e2) { /* ignore */ }
+            }
+        }
+
+        // GEÄNDERT: Entferne nur die alte Punktwolke, NICHT den gesamten Container
+        const oldCloud = document.querySelector('[point-cloud]');
+        if (oldCloud) {
+            console.log('Removing old point cloud');
+            oldCloud.remove();
+        }
+
+        const imageBitmap = await loadImageBitmap(imageUrl);
+        if (!imageBitmap) throw new Error('Failed to create ImageBitmap');
+
+        let targetWidth = imageBitmap.width;
+        let targetHeight = imageBitmap.height;
+
+        if (maxDim > 0) {
+            const longest = Math.max(imageBitmap.width, imageBitmap.height);
+            if (longest > maxDim) {
+                const scale = maxDim / longest;
+                targetWidth = Math.max(1, Math.floor(imageBitmap.width * scale));
+                targetHeight = Math.max(1, Math.floor(imageBitmap.height * scale));
+            }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+
+        const pixelBytes = packPixels(imageData, targetWidth, targetHeight);
+
+        // Store to cache (binary) and then load
+        await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, maxDim);
+        await loadPointCloudFromStorage();
+    } catch (e) {
+        console.error('Error processing image:', e);
     }
-
-    // clear previous point cloud container
-    const container = document.getElementById('pointcloud-container');
-    while (container.firstChild) container.removeChild(container.firstChild);
-
-    const imageBitmap = await loadImageBitmap(imageUrl);
-    if (!imageBitmap) throw new Error('Failed to create ImageBitmap');
-
-    let targetWidth = imageBitmap.width;
-    let targetHeight = imageBitmap.height;
-
-    if (maxDim > 0) {
-      const longest = Math.max(imageBitmap.width, imageBitmap.height);
-      if (longest > maxDim) {
-        const scale = maxDim / longest;
-        targetWidth = Math.max(1, Math.floor(imageBitmap.width * scale));
-        targetHeight = Math.max(1, Math.floor(imageBitmap.height * scale));
-      }
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
-    const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
-
-    const pixelBytes = packPixels(imageData, targetWidth, targetHeight);
-
-    // Store to cache (binary) and then load
-    await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, maxDim);
-    await loadPointCloudFromStorage();
-  } catch (e) {
-    console.error('Error processing image:', e);
-  }
 }
+
+
 
 async function loadImageBitmap(imageUrl) {
   if (imageUrl.startsWith('data:')) {
@@ -321,8 +538,100 @@ async function loadImageBitmap(imageUrl) {
   }
 }
 
-// On load, ensure panel exists and try to render any cached data for current resolution
-ensureControlPanel();
+function renderPointCloudFromBytes(width, height, pixels) {
+    console.log(`=== RENDERING POINT CLOUD ===`);
+    console.log(`Dimensions: ${width}x${height} pixels (${pixels.length} bytes)`);
+
+    const scene = document.querySelector('a-scene');
+    console.log('Scene found:', !!scene);
+
+    if (!scene) {
+        console.error('A-Frame scene not found');
+        return;
+    }
+
+    // Entferne alte Punktwolke
+    const oldCloud = document.querySelector('[point-cloud]');
+    if (oldCloud) {
+        console.log('Removing old point cloud');
+        oldCloud.remove();
+    }
+
+    // Erstelle Vertices und Colors Arrays
+    const vertices = [];
+    const colors = [];
+
+    const scale = 5;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 3;
+
+            const posX = (x / width - 0.5) * scale;
+            const posY = -(y / height - 0.5) * scale * (height / width);
+            const posZ = 0;
+
+            vertices.push(posX, posY, posZ);
+
+            colors.push(
+                pixels[idx] / 255,
+                pixels[idx + 1] / 255,
+                pixels[idx + 2] / 255
+            );
+        }
+    }
+
+    console.log(`Created ${vertices.length / 3} vertices`);
+
+    // Erstelle Entity mit point-cloud Komponente
+    const entity = document.createElement('a-entity');
+    entity.setAttribute('point-cloud', {
+        vertices: vertices.join(','),
+        colors: colors.join(','),
+        size: 0.03
+    });
+    entity.setAttribute('position', '0 0 -2');  // GEÄNDERT: Näher an Kamera
+    entity.setAttribute('id', 'current-pointcloud');
+
+    scene.appendChild(entity);
+    console.log('Point cloud added to scene');
+    console.log('Entity:', entity);
+}
+
+
+// VR-Modus Event Listener für UI-Sichtbarkeit
+document.addEventListener('DOMContentLoaded', () => {
+    const scene = document.querySelector('a-scene');
+
+    if (scene) {
+        scene.addEventListener('enter-vr', () => {
+            console.log('Entering VR mode');
+            const panel = document.getElementById('vr-control-panel');
+            const fileInput = document.getElementById('fileInput');
+            const loading = document.getElementById('loading');
+            const message = document.getElementById('message');
+
+            if (panel) panel.style.display = 'none';
+            if (fileInput) fileInput.style.display = 'none';
+            if (loading) loading.style.display = 'none';
+            if (message) message.style.display = 'none';
+        });
+
+        scene.addEventListener('exit-vr', () => {
+            console.log('Exiting VR mode');
+            const panel = document.getElementById('vr-control-panel');
+            const fileInput = document.getElementById('fileInput');
+            const message = document.getElementById('message');
+
+            if (panel) panel.style.display = 'block';
+            if (fileInput) fileInput.style.display = 'block';
+            if (message) message.style.display = 'block';
+        });
+    }
+});
+
+// Initialisierung
 loadPointCloudFromStorage();
+createVRControlPanel();
 
 // LZString should be included in the HTML for the small localStorage backup support.
