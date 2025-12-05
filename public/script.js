@@ -569,6 +569,20 @@ async function pruneCacheExcept(maxDimKeep) {
   }
 }
 
+// Desktop Modus Event Listener
+window.addEventListener('resize', () => {
+  const entity = document.getElementById('current-pointcloud');
+  if (entity) fitPointCloudToView(entity, 1.1);
+});
+
+const scene = document.querySelector('a-scene');
+if (scene) {
+  scene.addEventListener('exit-vr', () => {
+    const entity = document.getElementById('current-pointcloud');
+    if (entity) fitPointCloudToView(entity, 1.1);
+  });
+}
+
 // VR-Modus Event Listener für UI-Sichtbarkeit
 document.addEventListener('DOMContentLoaded', () => {
   const scene = document.querySelector('a-scene');
