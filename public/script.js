@@ -123,6 +123,37 @@ function packPixels(imageData, width, height) {
   return pixels;
 }
 
+function fitPointCloudToView(entity, padding = 1.1) {
+  const camEl = document.getElementById('main-camera');
+  if (!camEl) return;
+  const camObj = camEl.getObject3D('camera');
+  if (!camObj) return;
+
+  const points = entity.getObject3D('mesh');
+  if (!points) return;
+
+  const geom = points.geometry;
+  if (!geom.boundingSphere) geom.computeBoundingSphere();
+  const r = geom.boundingSphere.radius || 1;
+
+  // Vertikales FOV und horizontales FOV
+  const fovV = THREE.MathUtils.degToRad(camObj.fov || 60);
+  const aspect = camObj.aspect || (window.innerWidth / Math.max(1, window.innerHeight));
+  const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
+
+  // Benötigte Distanz, damit der gesamte Radius hineinpasst (Höhe/ Breite)
+  const distV = r / Math.tan(fovV / 2);
+  const distH = r / Math.tan(fovH / 2);
+  const dist = Math.max(distV, distH) * padding;
+
+  // Kamera-Höhe übernehmen, damit vertikal zentriert wird
+  const camY = camEl.object3D.position.y || 0;
+
+  // Position setzen: vor die Kamera (negatives Z in A-Frame/Three Blickrichtung)
+  entity.object3D.position.set(0, camY, -dist);
+  entity.object3D.updateMatrixWorld(true);
+}
+
 async function storeBinaryToCache(pixelBytes, width, height, maxDim) {
   try {
     const cache = await caches.open(CACHE_NAME);
@@ -229,36 +260,6 @@ AFRAME.registerComponent('point-cloud', {
   }
 });
 
-function fitPointCloudToView(entity, padding = 1.1) {
-  const camEl = document.getElementById('main-camera');
-  if (!camEl) return;
-  const camObj = camEl.getObject3D('camera');
-  if (!camObj) return;
-
-  const points = entity.getObject3D('mesh');
-  if (!points) return;
-
-  const geom = points.geometry;
-  if (!geom.boundingSphere) geom.computeBoundingSphere();
-  const r = geom.boundingSphere.radius || 1;
-
-  // Vertikales FOV und horizontales FOV
-  const fovV = THREE.MathUtils.degToRad(camObj.fov || 60);
-  const aspect = camObj.aspect || (window.innerWidth / Math.max(1, window.innerHeight));
-  const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
-
-  // Benötigte Distanz, damit der gesamte Radius hineinpasst (Höhe/ Breite)
-  const distV = r / Math.tan(fovV / 2);
-  const distH = r / Math.tan(fovH / 2);
-  const dist = Math.max(distV, distH) * padding;
-
-  // Kamera-Höhe übernehmen, damit vertikal zentriert wird
-  const camY = camEl.object3D.position.y || 0;
-
-  // Position setzen: vor die Kamera (negatives Z in A-Frame/Three Blickrichtung)
-  entity.object3D.position.set(0, camY, -dist);
-  entity.object3D.updateMatrixWorld(true);
-}
 
 
 // Animation: RGB → XYZ
