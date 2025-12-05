@@ -91,13 +91,14 @@ function createVRControlPanel() {
 
     // Max Dimension Handler
     const maxDimInput = document.getElementById('pc-max-dim');
-    maxDimInput.addEventListener('input', () => {
-        const v = parseInt(maxDimInput.value, 10);
-        pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
-        const lastImage = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
-        if (lastImage) {
-            processImage(lastImage, { maxDimension: pcConfig.maxDimension });
-        }
+    maxDimInput.addEventListener('input', debounce(() => {
+      const v = parseInt(maxDimInput.value, 10);
+      pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
+      const lastImage = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
+      if (lastImage) {
+        processImage(lastImage, { maxDimension: pcConfig.maxDimension });
+      }
+    }, 300));
     });
 
     // Clear Cache Handler
@@ -236,79 +237,25 @@ async function clearCacheAndStorage() {
 
 //	A-Frame	Component für Punktwolken-Rendering
 AFRAME.registerComponent('point-cloud', {
-    schema: {
-        vertices: { type: 'string' },
-        colors: { type: 'string' },
-        size: { default: 0.1 }
-    },
+  schema: { size: { default: 0.02 } },
 
-    init: function() {
-        console.log('point-cloud component init');
-        const data = this.data;
-        const el = this.el;
-
-        try {
-            // Parse Daten
-            const verticesArray = data.vertices.split(',').map(Number);
-            const colorsArray = data.colors.split(',').map(Number);
-
-            console.log(`Parsed ${verticesArray.length / 3} vertices and ${colorsArray.length / 3} colors`);
-
-            // Three.js Geometrie erstellen
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position',
-                new THREE.BufferAttribute(new Float32Array(verticesArray), 3));
-            geometry.setAttribute('color',
-                new THREE.BufferAttribute(new Float32Array(colorsArray), 3));
-
-            /*
-            // Material
-            const material = new THREE.PointsMaterial({
-                size: data.size,
-                vertexColors: true,
-                sizeAttenuation: true
-            });
-            */
-            
-            // Optional Material : Downsizing for VR
-            const material = new THREE.PointsMaterial({
-                size: data.size,
-                vertexColors: true,
-                sizeAttenuation: true,
-                transparent: true,
-                opacity: 0.8
-            });
-            
-
-            // Points Object
-            const points = new THREE.Points(geometry, material);
-
-            // Überprüfe, ob points ein gültiges Object3D ist
-            if (!(points instanceof THREE.Object3D)) {
-                console.error('points is not a THREE.Object3D:', points);
-                return;
-            }
-
-            console.log('Setting object3D:', points);
-            el.setObject3D('mesh', points);
-            console.log('point-cloud component initialized successfully');
-        } catch (e) {
-            console.error('Error in point-cloud component init:', e);
-        }
-    },
-
-    update: function(oldData) {
-        if (oldData.vertices !== this.data.vertices) {
-            console.log('point-cloud data changed, reinitializing');
-            this.init();
-        }
-    },
-
-    remove: function() {
-        console.log('Removing point-cloud component');
-        this.el.removeObject3D('mesh');
+  update: function (oldData) {
+    if (oldData.size !== this.data.size) {
+      const obj = this.el.getObject3D('mesh');
+      if (obj && obj.material) obj.material.size = this.data.size;
     }
+  },
+
+  remove: function () {
+    const obj = this.el.getObject3D('mesh');
+    if (obj) {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) obj.material.dispose();
+      this.el.removeObject3D('mesh');
+    }
+  }
 });
+
 
 function transformToXYZ() {
     const pointCloudEntity = document.querySelector('[point-cloud]');
@@ -360,6 +307,7 @@ function transformToXYZ() {
         }
 
         geometry.attributes.position.needsUpdate = true;
+        // Nur einmalig berechnen
         geometry.computeBoundingSphere();
 
         if (progress < 1) {
@@ -466,137 +414,197 @@ async function loadPointCloudFromStorage() {
   }
 }
 
-// Process image: draw to canvas, optional downscale, pack, and store
-async function processImage(imageUrl, options = {}) {
-    try {
-        // ENTFERNT: ensureControlPanel();
 
-        const maxDim = (typeof options.maxDimension === 'number') ? options.maxDimension : pcConfig.maxDimension;
+async function loadImageBitmap(imageUrl, targetMaxDim) {
+  const resizeOpts = (targetMaxDim && targetMaxDim > 0)
+    ? { resizeQuality: 'medium' }
+    : null;
 
-        // Persist the last image Data URL so reloads/changes work without re-upload
-        if (imageUrl && imageUrl.startsWith('data:')) {
-            try {
-                sessionStorage.setItem(LAST_IMAGE_KEY, imageUrl);
-            } catch (e) {
-                try { localStorage.setItem(LAST_IMAGE_KEY, imageUrl); } catch (e2) { /* ignore */ }
-            }
-        }
-
-        // GEÄNDERT: Entferne nur die alte Punktwolke, NICHT den gesamten Container
-        const oldCloud = document.querySelector('[point-cloud]');
-        if (oldCloud) {
-            console.log('Removing old point cloud');
-            oldCloud.remove();
-        }
-
-        const imageBitmap = await loadImageBitmap(imageUrl);
-        if (!imageBitmap) throw new Error('Failed to create ImageBitmap');
-
-        let targetWidth = imageBitmap.width;
-        let targetHeight = imageBitmap.height;
-
-        if (maxDim > 0) {
-            const longest = Math.max(imageBitmap.width, imageBitmap.height);
-            if (longest > maxDim) {
-                const scale = maxDim / longest;
-                targetWidth = Math.max(1, Math.floor(imageBitmap.width * scale));
-                targetHeight = Math.max(1, Math.floor(imageBitmap.height * scale));
-            }
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
-        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
-
-        const pixelBytes = packPixels(imageData, targetWidth, targetHeight);
-
-        // Store to cache (binary) and then load
-        await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, maxDim);
-        await loadPointCloudFromStorage();
-    } catch (e) {
-        console.error('Error processing image:', e);
-    }
-}
-
-
-
-async function loadImageBitmap(imageUrl) {
   if (imageUrl.startsWith('data:')) {
-    return await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.src = imageUrl;
-      img.crossOrigin = 'Anonymous';
-      img.onload = async () => { resolve(await createImageBitmap(img)); };
-      img.onerror = reject;
+    const img = await new Promise((resolve, reject) => {
+      const im = new Image();
+      im.src = imageUrl;
+      im.crossOrigin = 'Anonymous';
+      im.onload = () => resolve(im);
+      im.onerror = reject;
     });
+
+    // Früh skalieren (Chromium/Wolvic unterstützt Resize-Optionen bei ImageBitmap)
+    if (resizeOpts && (img.width > targetMaxDim || img.height > targetMaxDim)) {
+      const scale = targetMaxDim / Math.max(img.width, img.height);
+      const rw = Math.max(1, Math.floor(img.width * scale));
+      const rh = Math.max(1, Math.floor(img.height * scale));
+      return await createImageBitmap(img, { resizeWidth: rw, resizeHeight: rh, resizeQuality: 'medium' });
+    }
+    return await createImageBitmap(img);
   } else {
     const resp = await fetch(imageUrl, { mode: 'cors' });
     const blob = await resp.blob();
-    return await createImageBitmap(blob);
+    // Optional: bei Blob auch Resize anwenden
+    const bmp = await createImageBitmap(blob);
+    if (resizeOpts && (bmp.width > targetMaxDim || bmp.height > targetMaxDim)) {
+      const scale = targetMaxDim / Math.max(bmp.width, bmp.height);
+      const rw = Math.max(1, Math.floor(bmp.width * scale));
+      const rh = Math.max(1, Math.floor(bmp.height * scale));
+      const resized = await createImageBitmap(bmp, { resizeWidth: rw, resizeHeight: rh, resizeQuality: Gill 'medium' });
+      bmp.close();
+      return resized;
+    }
+    return bmp;
   }
 }
 
-function renderPointCloudFromBytes(width, height, pixels) {
-    console.log(`=== RENDERING POINT CLOUD ===`);
-    console.log(`Dimensions: ${width}x${height} pixels (${pixels.length} bytes)`);
+let currentProcessToken = 0;
 
-    const scene = document.querySelector('a-scene');
-    console.log('Scene found:', !!scene);
+async function processImage(imageUrl, options = {}) {
+  const token = ++currentProcessToken; // Abbruch-/Storno-Token
+  try {
+    const maxDim = (typeof options.maxDimension === 'number') ? options.maxDimension : pcConfig.maxDimension;
 
-    if (!scene) {
-        console.error('A-Frame scene not found');
-        return;
+    if (imageUrl && imageUrl.startsWith('data:')) {
+      try {
+        sessionStorage.setItem(LAST_IMAGE_KEY, imageUrl);
+      } catch {
+        try { localStorage.setItem(LAST_IMAGE_KEY, imageUrl); } catch {}
+      }
     }
 
-    // Entferne alte Punktwolke
-    const oldCloud = document.querySelector('[point-cloud]');
-    if (oldCloud) {
-        console.log('Removing old point cloud');
-        oldCloud.remove();
+    // Alte Punktwolke nur visuell entfernen (GPU Disposen in render), falls vorhanden
+    const oldCloud = document.getElementById('current-pointcloud');
+    // nicht sofort entfernen; render kümmert sich um Dispose/Replace
+
+    const imageBitmap = await loadImageBitmap(imageUrl, maxDim);
+    if (token !== currentProcessToken) { imageBitmap?.close?.(); return; }
+    if (!imageBitmap) throw new Error('Failed to create ImageBitmap');
+
+    const targetWidth = imageBitmap.width;
+    const targetHeight = imageBitmap.height;
+
+    // Kleinere Canvas genügt jetzt, da früh skaliert
+    const canvas = (typeof OffscreenCanvas !== 'undefined')
+      ? new OffscreenCanvas(targetWidth, targetHeight)
+      : Object.assign(document.createElement('canvas'), { width: targetWidth, height: targetHeight });
+
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+    const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+
+    // Bitmap freigeben
+    imageBitmap.close?.();
+
+    const pixelBytes = packPixels(imageData, targetWidth, targetHeight);
+
+    // Canvas-Speicher freigeben
+    if (!(canvas instanceof OffscreenCanvas)) {
+      // DOM-Canvas
+      canvas.width = canvas.height = 0;
     }
+    // Referenzen lösen
+    // eslint-disable-next-line no-unused-vars
+    // @ts-ignore
+    ctx = null;
 
-    // Erstelle Vertices und Colors Arrays
-    const vertices = [];
-    const colors = [];
+    if (token !== currentProcessToken) return;
 
-    const scale = 5;
+    // Cache auf aktuelle Auflösung beschränken
+    await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, maxDim);
+    await pruneCacheExcept(maxDim);
 
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const idx = (y * width + x) * 3;
+    if (token !== currentProcessToken) return;
 
-            const posX = (x / width - 0.5) * scale;
-            const posY = -(y / height - 0.5) * scale * (height / width);
-            const posZ = 0;
+    // Direkt rendern (mit Decimation)
+    renderPointCloudFromBytes(targetWidth, targetHeight, pixelBytes, { maxPoints: 300000 });
 
-            vertices.push(posX, posY, posZ);
+  } catch (e) {
+    console.error('Error processing image:', e);
+  }
+}
 
-            colors.push(
-                pixels[idx] / 255,
-                pixels[idx + 1] / 255,
-                pixels[idx + 2] / 255
-            );
-        }
-    }
 
-    console.log(`Created ${vertices.length / 3} vertices`);
 
-    // Erstelle Entity mit point-cloud Komponente
-    const entity = document.createElement('a-entity');
-    entity.setAttribute('point-cloud', {
-        vertices: vertices.join(','),
-        colors: colors.join(','),
-        size: 0.03
-    });
-    entity.setAttribute('position', '0 0 -2');  // GEÄNDERT: Näher an Kamera
-    entity.setAttribute('id', 'current-pointcloud');
+function disposePointCloudEntity(entity) {
+  const obj = entity?.getObject3D('mesh');
+  if (obj) {
+    obj.geometry?.dispose();
+    obj.material?.dispose();
+    entity.removeObject3D('mesh');
+  }
+}
 
+function renderPointCloudFromBytes(width, height, pixels, { maxPoints = 300000 } = {}) {
+  const scene = document.querySelector('a-scene');
+  if (!scene) return;
+
+  let entity = document.getElementById('current-pointcloud');
+  if (!entity) {
+    entity = document.createElement('a-entity');
+    entity.id = 'current-pointcloud';
+    entity.setAttribute('position', '0 0 -2');
+    entity.setAttribute('point-cloud', { size: 0.02 }); // nur Größe
     scene.appendChild(entity);
-    console.log('Point cloud added to scene');
-    console.log('Entity:', entity);
+  }
+
+  // alte GPU-Ressourcen freigeben
+  disposePointCloudEntity(entity);
+
+  // Decimation
+  const total = width * height;
+  const stride = Math.max(1, Math.ceil(Math.sqrt(total / maxPoints)));
+
+  const outW = Math.ceil(width / stride);
+  const outH = Math.ceil(height / stride);
+  const count = outW * outH;
+
+  const positions = new Float32Array(count * 3);
+  const colors    = new Float32Array(count * 3);
+
+  const scale = 5;
+  let k = 0;
+  for (let y = 0; y < height; y += stride) {
+    for (let x = 0; x < width; x += stride) {
+      const idx = (y * width + x) * 3;
+
+      positions[k]     = (x / width - 0.5) * scale;
+      positions[k + 1] = -(y / height - 0.5) * scale * (height / width);
+      positions[k + 2] = 0;
+
+      colors[k]     = pixels[idx] / 255;
+      colors[k + 1] = pixels[idx + 1] / 255;
+      colors[k + 2] = pixels[idx + 2] / 255;
+
+      k += 3;
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute('color',    new THREE.BufferAttribute(colors, 3));
+  geometry.computeBoundingSphere();
+
+  const size = entity.getAttribute('point-cloud')?.size || 0.02;
+  const material = new THREE.PointsMaterial({ size, vertexColors: true, sizeAttenuation: true });
+
+  const points = new THREE.Points(geometry, material);
+  entity.setObject3D('mesh', points);
+}
+
+
+
+async function pruneCacheExcept(maxDimKeep) {
+  if (!('caches' in window)) return;
+  const cache = await caches.open(CACHE_NAME);
+  const requests = await cache.keys();
+  const { binKey: keepBin, metaKey: keepMeta } = getKeysFor(maxDimKeep);
+
+  for (const req of requests) {
+    const url = req.url || '';
+    const shouldDelete =
+      (url.includes(BIN_KEY_PREFIX) && !url.endsWith(keepBin)) ||
+      (url.includes(META_KEY_PREFIX) && !url.endsWith(keepMeta));
+    if (shouldDelete) {
+      await cache.delete(req);
+    }
+  }
 }
 
 
@@ -632,6 +640,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Initialisierung
+geometry.computeBoundingSphere();
 loadPointCloudFromStorage();
 createVRControlPanel();
 
