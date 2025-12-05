@@ -331,9 +331,12 @@ async function loadImageBitmap(imageUrl) {
 }
 
 function renderPointCloudFromBytes(width, height, pixels) {
-    console.log(`Rendering point cloud: ${width}x${height} pixels (${pixels.length} bytes)`);
+    console.log(`=== RENDERING POINT CLOUD ===`);
+    console.log(`Dimensions: ${width}x${height} pixels (${pixels.length} bytes)`);
 
     const scene = document.querySelector('a-scene');
+    console.log('Scene found:', !!scene);
+
     if (!scene) {
         console.error('A-Frame scene not found');
         return;
@@ -350,21 +353,18 @@ function renderPointCloudFromBytes(width, height, pixels) {
     const vertices = [];
     const colors = [];
 
-    // Skalierungsfaktor für bessere Sichtbarkeit
     const scale = 5;
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const idx = (y * width + x) * 3;
 
-            // Position (zentriert)
             const posX = (x / width - 0.5) * scale;
-            const posY = -(y / height - 0.5) * scale * (height / width); // Aspect Ratio korrigieren
+            const posY = -(y / height - 0.5) * scale * (height / width);
             const posZ = 0;
 
             vertices.push(posX, posY, posZ);
 
-            // Farbe (normalisiert 0-1)
             colors.push(
                 pixels[idx] / 255,
                 pixels[idx + 1] / 255,
@@ -373,7 +373,7 @@ function renderPointCloudFromBytes(width, height, pixels) {
         }
     }
 
-    console.log(`Creating entity with ${vertices.length / 3} points`);
+    console.log(`Created ${vertices.length / 3} vertices`);
 
     // Erstelle Entity mit point-cloud Komponente
     const entity = document.createElement('a-entity');
@@ -382,11 +382,12 @@ function renderPointCloudFromBytes(width, height, pixels) {
         colors: colors.join(','),
         size: 0.03
     });
-    entity.setAttribute('position', '0 1.6 -3');
+    entity.setAttribute('position', '0 0 -2');  // GEÄNDERT: Näher an Kamera
     entity.setAttribute('id', 'current-pointcloud');
 
     scene.appendChild(entity);
-    console.log('Point cloud successfully added to scene');
+    console.log('Point cloud added to scene');
+    console.log('Entity:', entity);
 }
 
 
