@@ -109,14 +109,15 @@ function createVRControlPanel() {
   const xyzBtn = document.getElementById('pc-xyz-transform');
   if (xyzBtn) {
     xyzBtn.addEventListener('click', () => {
-      if (isAnimatingTransform) return;
+      if (isAnimatingTransform) return; // während Animation nicht toggeln
       const entity = document.getElementById('current-pointcloud');
       if (!entity || !entity.getObject3D('mesh')) return;
+
       if (!isXYZMode) {
         transformToXYZ();
         isXYZMode = true;
       } else {
-        revertToRGB(); // setzt am Ende isXYZMode=false
+        revertToRGB(); // setzt isXYZMode am Ende wieder auf false
       }
       setXYZButtonState();
     });
@@ -342,11 +343,11 @@ function transformToXYZ() {
     if (progress < 1) {
       requestAnimationFrame(animate);
     } else {
-      if (myToken !== transformToken) return;
+      if (myToken !== transformToken) return; // abgebrochen
       geometry.computeBoundingSphere();
       startRotation(entity);
-      isAnimatingTransform = false;
-      setXYZButtonEnabled(true);
+      isAnimatingTransform = false; // Animation beendet
+      setXYZButtonEnabled(true); // Button wieder aktiv
     }
   }
   animate();
@@ -403,12 +404,12 @@ function revertToRGB() {
     if (progress < 1) {
       requestAnimationFrame(animateReverse);
     } else {
-      if (myToken !== transformToken) return;
+      if (myToken !== transformToken) return; // abgebrochen
       geometry.computeBoundingSphere();
-      isXYZMode = false;
+      isXYZMode = false; // zurücksetzen
       setXYZButtonState();
-      setXYZButtonEnabled(true);
-      fitPointCloudToView(entity, 1.1);
+      setXYZButtonEnabled(true); // Button wieder aktiv
+      fitPointCloudToView(entity, 1.1); // Sichtfeld anpassen
     }
   }
   animateReverse();
@@ -563,7 +564,6 @@ function renderPointCloudFromBytes(width, height, pixels, { maxPoints = 300000 }
     scene.appendChild(entity);
   }
 
-  // Alte GPU-Ressourcen freigeben
   disposePointCloudEntity(entity);
 
   // Decimation (Quest-sicher)
@@ -604,8 +604,8 @@ function renderPointCloudFromBytes(width, height, pixels, { maxPoints = 300000 }
   const points = new THREE.Points(geometry, material);
   entity.setObject3D('mesh', points);
 
-  // Danach passend ins Sichtfeld setzen
-  fitPointCloudToView(entity, 1.1);
+  // WICHTIG: Danach passend ins Sichtfeld setzen
+  fitPointCloudToView(entity, 1.1); // 10% Rand
 }
 
 // Cache nur für aktuelle Auflösung behalten
