@@ -261,14 +261,15 @@ AFRAME.registerComponent('point-cloud', {
             geometry.setAttribute('color',
                 new THREE.BufferAttribute(new Float32Array(colorsArray), 3));
 
+            /*
             // Material
             const material = new THREE.PointsMaterial({
                 size: data.size,
                 vertexColors: true,
                 sizeAttenuation: true
             });
-
-            /*
+            */
+            
             // Optional Material : Downsizing for VR
             const material = new THREE.PointsMaterial({
                 size: data.size,
@@ -277,7 +278,7 @@ AFRAME.registerComponent('point-cloud', {
                 transparent: true,
                 opacity: 0.8
             });
-            */
+            
 
             // Points Object
             const points = new THREE.Points(geometry, material);
