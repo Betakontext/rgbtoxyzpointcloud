@@ -359,6 +359,7 @@ function revertToRGB() {
     }
   }
   animateReverse();
+  fitPointCloudToView(pointCloudEntity, 1.1);
 }
 
 function startRotation(entity) {
