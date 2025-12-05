@@ -361,19 +361,20 @@ async function loadImageBitmap(url, maxDim) {
 
 /*--- Bild‑Verarbeitung ---------------------------------------------------*/
 async function processImage(imageUrl, options = {}) {
-  const token = ++currentProcessToken;            // cancel‑Token für diesen Durchlauf
+  const token = ++currentProcessToken;            // Cancel‑Token
+
   try {
     const maxDim = (typeof options.maxDimension === 'number')
       ? options.maxDimension
       : pcConfig.maxDimension;
 
-    // 1️⃣ Abbruch laufender Animationen & Reset UI‑Zustand
-    cancelActiveTransform();
+    // 1️⃣ Abbruch laufender Animationen & UI‑Reset
+    cancelActiveTransform();                     // stoppt Rotation & XYZ‑Animation
     isXYZMode = false;
     setXYZButtonState();
     setXYZButtonEnabled(false);
 
-    // 2️⃣ Persistieren des Data‑URL (für Reloads)
+    // 2️⃣ Data‑URL sichern (für Reloads)
     if (imageUrl.startsWith('data:')) {
       try { sessionStorage.setItem(LAST_IMAGE_KEY, imageUrl); }
       catch { try { localStorage.setItem(LAST_IMAGE_KEY, imageUrl); } catch {} }
@@ -381,7 +382,7 @@ async function processImage(imageUrl, options = {}) {
 
     // 3️⃣ Bitmap holen (inkl. evtl. Down‑Scale)
     const bitmap = await loadImageBitmap(imageUrl, maxDim);
-    if (token !== currentProcessToken) { bitmap?.close?.(); return; } // abgebrochen
+    if (token !== currentProcessToken) { bitmap?.close?.(); return; }
     if (!bitmap) throw new Error('Bitmap creation failed');
 
     const w = bitmap.width, h = bitmap.height;
@@ -401,17 +402,15 @@ async function processImage(imageUrl, options = {}) {
     const imgData = ctx.getImageData(0, 0, w, h);
     const pixelBytes = packPixels(imgData);
 
-    // 5️⃣ Canvas‑Ressourcen freigeben
+    // 5️⃣ Canvas freigeben
     if (!(canvas instanceof OffscreenCanvas)) { canvas.width = canvas.height = 0; }
     canvas = null; ctx = null;
+    if (token !== currentProcessToken) return;
 
-    if (token !== currentProcessToken) return; // abgebrochen
-
-    // 6️⃣ Cache‑Speicherung + Aufräumen anderer Auflösungen
+    // 6️⃣ Cache speichern + alte Auflösungen entfernen
     await storeBinaryToCache(pixelBytes, w, h, maxDim);
     await pruneCacheExcept(maxDim);
-
-    if (token !== currentProcessToken) return; // abgebrochen
+    if (token !== currentProcessToken) return;
 
     // 7️⃣ Rendern (inkl. Fit‑to‑View)
     renderPointCloudFromBytes(w, h, pixelBytes, { maxPoints: 300_000 });
@@ -421,6 +420,19 @@ async function processImage(imageUrl, options = {}) {
   } catch (e) {
     console.error('[PC] processImage error', e);
     setXYZButtonEnabled(true);
+  }
+}
+
+/*--- Laden aus Cache beim Start (Tab‑Reload) ---------------------------*/
+async function loadPointCloudFromStorage() {
+  const data = await readBinaryFromCache(pcConfig.maxDimension);
+  if (data) {
+    cancelActiveTransform();          // sicherstellen, dass keine Rotation mehr läuft
+    isXYZMode = false;
+    setXYZButtonState();
+    renderPointCloudFromBytes(data.width, data.height, data.pixels, { maxPoints: 300_000 });
+  } else {
+    console.log('[PC] no cached pointcloud – waiting for user upload');
   }
 }
 
