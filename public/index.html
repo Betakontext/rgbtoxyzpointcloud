@@ -6,12 +6,12 @@
     <title>3D Pixel Point Cloud VR</title>
     <link rel="stylesheet" href="styles.css">
 
-    <!-- A-Frame -->
+    <!-- A-Frame (lädt THREE.js automatisch) -->
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
-    <!-- Three.js (für A-Frame) -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js"></script>
+    <!-- ENTFERNT: THREE.js wird von A-Frame geladen -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js"></script> -->
 
     <!-- LZString -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
@@ -29,9 +29,6 @@
             <a-entity laser-controls="hand: left"></a-entity>
             <a-entity laser-controls="hand: right"></a-entity>
         </a-entity>
-
-        <!-- ENTFERNT: a-sky und a-plane - diese verdecken die Punktwolke -->
-        <!-- Die Punktwolke wird hier eingefügt -->
     </a-scene>
 
     <script src="upload.js"></script>
