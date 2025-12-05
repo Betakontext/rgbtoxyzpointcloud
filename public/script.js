@@ -7,10 +7,20 @@ const META_KEY_PREFIX = '/pointcloud_meta_'; // keys will be /pointcloud_meta_<m
 const LOCAL_STORAGE_KEY = 'pointcloudJsonBackup';
 const LAST_IMAGE_KEY = 'pc_last_image_dataurl';
 
+// App-Version -> beim Rebuild einmalig Cache leeren
+const APP_VERSION = '2025-12-05-02';
+const STORAGE_VERSION_KEY = 'pc_storage_version';
+
 // Default config (0 = full resolution)
 const pcConfig = {
   maxDimension: 0 // 0 = keep original, otherwise scale longest side to this
 };
+
+// Tokens/State
+let currentProcessToken = 0;   // für Bildverarbeitung
+let transformToken = 0;        // für XYZ/Back Animation
+let isAnimatingTransform = false;
+let isXYZMode = false;
 
 // Simple debounce helper
 function debounce(fn, wait) {
@@ -21,10 +31,47 @@ function debounce(fn, wait) {
   };
 }
 
-// UI: VR Control Panel (Max Dimension, XYZ/Back, Clear Cache)
+// Initialer Storage-Reset nach Versionswechsel
+async function ensureFreshStorage() {
+  try {
+    const v = localStorage.getItem(STORAGE_VERSION_KEY);
+    if (v !== APP_VERSION) {
+      await clearCacheAndStorage();
+      localStorage.setItem(STORAGE_VERSION_KEY, APP_VERSION);
+      console.log('Storage cleared due to app version change:', APP_VERSION);
+    }
+  } catch (e) {
+    console.warn('ensureFreshStorage failed', e);
+  }
+}
+
+// UI: Button-State Helfer
+function setXYZButtonState() {
+  const btn = document.getElementById('pc-xyz-transform');
+  if (!btn) return;
+  if (isXYZMode) {
+    btn.textContent = 'Back to RGB';
+    btn.style.background = '#FF9800';
+  } else {
+    btn.textContent = 'XYZ Pointcloud';
+    btn.style.background = '#4CAF50';
+  }
+}
+function setXYZButtonEnabled(enabled) {
+  const btn = document.getElementById('pc-xyz-transform');
+  if (btn) btn.disabled = !enabled;
+}
+function cancelActiveTransform() {
+  transformToken++;
+  isAnimatingTransform = false;
+  const entity = document.getElementById('current-pointcloud');
+  if (entity) entity.removeAttribute('animation__rotate');
+}
+
+// UI: VR Control Panel
 function createVRControlPanel() {
   const existingPanel = document.getElementById('vr-control-panel');
-  if (existingPanel) return; // Bereits vorhanden
+  if (existingPanel) return;
 
   const panel = document.createElement('div');
   panel.id = 'vr-control-panel';
@@ -58,34 +105,34 @@ function createVRControlPanel() {
 
   document.body.appendChild(panel);
 
-  let isXYZMode = false;
-
+  // XYZ Toggle
   const xyzBtn = document.getElementById('pc-xyz-transform');
   if (xyzBtn) {
     xyzBtn.addEventListener('click', () => {
+      if (isAnimatingTransform) return;
       const entity = document.getElementById('current-pointcloud');
-      if (!entity) return;
-      const points = entity.getObject3D('mesh');
-      if (!points) return;
+      if (!entity || !entity.getObject3D('mesh')) return;
       if (!isXYZMode) {
         transformToXYZ();
         isXYZMode = true;
-        xyzBtn.textContent = 'Back to RGB';
-        xyzBtn.style.background = '#FF9800';
       } else {
-        revertToRGB();
-        isXYZMode = false;
-        xyzBtn.textContent = 'XYZ Pointcloud';
-        xyzBtn.style.background = '#4CAF50';
+        revertToRGB(); // setzt am Ende isXYZMode=false
       }
+      setXYZButtonState();
     });
   }
 
-  // Max Dimension Handler (debounced) – triggert Reprocessing des letzten Bildes
+  // Max Dimension Handler (debounced)
   const maxDimInput = document.getElementById('pc-max-dim');
   maxDimInput.addEventListener('input', debounce(() => {
     const v = parseInt(maxDimInput.value, 10);
     pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
+
+    // laufende Animation abbrechen, UI zurücksetzen
+    cancelActiveTransform();
+    isXYZMode = false;
+    setXYZButtonState();
+
     const lastImage = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
     if (lastImage) {
       processImage(lastImage, { maxDimension: pcConfig.maxDimension });
@@ -96,10 +143,13 @@ function createVRControlPanel() {
   const clearBtn = document.getElementById('pc-clear-cache');
   clearBtn.addEventListener('click', async () => {
     await clearCacheAndStorage();
-    const entity = document.getElementById('current-pointcloud');
-    if (entity) disposePointCloudEntity(entity);
+    cancelActiveTransform();
+    isXYZMode = false;
+    setXYZButtonState();
     const fileInput = document.getElementById('fileInput');
     if (fileInput) fileInput.value = '';
+    const entity = document.getElementById('current-pointcloud');
+    if (entity) disposePointCloudEntity(entity);
     alert('Cache cleared.');
   });
 }
@@ -116,55 +166,20 @@ function packPixels(imageData, width, height) {
   const data = imageData.data; // RGBA
   let p = 0;
   for (let i = 0; i < data.length; i += 4) {
-    pixels[p++] = data[i];     // r
-    pixels[p++] = data[i + 1]; // g
-    pixels[p++] = data[i + 2]; // b
+    pixels[p++] = data[i];
+    pixels[p++] = data[i + 1];
+    pixels[p++] = data[i + 2];
   }
   return pixels;
-}
-
-function fitPointCloudToView(entity, padding = 1.1) {
-  const camEl = document.getElementById('main-camera');
-  if (!camEl) return;
-  const camObj = camEl.getObject3D('camera');
-  if (!camObj) return;
-
-  const points = entity.getObject3D('mesh');
-  if (!points) return;
-
-  const geom = points.geometry;
-  if (!geom.boundingSphere) geom.computeBoundingSphere();
-  const r = Math.max(geom.boundingSphere?.radius || 1, 0.0001);
-
-  // Vertikales FOV und horizontales FOV
-  const fovV = THREE.MathUtils.degToRad(camObj.fov || 60);
-  const aspect = camObj.aspect || (window.innerWidth / Math.max(1, window.innerHeight));
-  const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
-
-  // Benötigte Distanz, damit der gesamte Radius hineinpasst (Höhe/ Breite)
-  const distV = r / Math.tan(fovV / 2);
-  const distH = r / Math.tan(fovH / 2);
-  const dist = Math.max(distV, distH) * padding;
-
-  // Kamera-Höhe übernehmen, damit vertikal zentriert wird
-  const camY = camEl.object3D.position.y || 0;
-
-  // Position setzen: vor die Kamera (negatives Z in A-Frame/Three Blickrichtung)
-  entity.object3D.position.set(0, camY, -dist);
-  entity.object3D.updateMatrixWorld(true);
 }
 
 async function storeBinaryToCache(pixelBytes, width, height, maxDim) {
   try {
     const cache = await caches.open(CACHE_NAME);
     const keys = getKeysFor(maxDim);
-
     const meta = { width, height, format: 'rgb8' };
     await cache.put(keys.metaKey, new Response(JSON.stringify(meta), { headers: { 'Content-Type': 'application/json' } }));
     await cache.put(keys.binKey, new Response(pixelBytes.buffer, { headers: { 'Content-Type': 'application/octet-stream' } }));
-    console.log('Stored pointcloud binary and meta to Cache API with keys', keys);
-
-    // Optional: kleine Backups in LocalStorage
     try {
       const maxBackupPixels = 200000;
       if (width * height <= maxBackupPixels) {
@@ -175,7 +190,6 @@ async function storeBinaryToCache(pixelBytes, width, height, maxDim) {
     } catch (e) {
       console.warn('localStorage backup failed:', e);
     }
-
     return true;
   } catch (e) {
     console.error('Error storing binary to cache:', e);
@@ -194,10 +208,7 @@ async function readBinaryFromCache(maxDim) {
         const meta = await metaResp.json();
         const ab = await binResp.arrayBuffer();
         const pixelBytes = new Uint8Array(ab);
-        if (pixelBytes.length !== meta.width * meta.height * 3) {
-          console.error('Pixel buffer size mismatch:', pixelBytes.length, 'expected', meta.width * meta.height * 3);
-          return null;
-        }
+        if (pixelBytes.length !== meta.width * meta.height * 3) return null;
         return { width: meta.width, height: meta.height, pixels: pixelBytes };
       }
     } catch (e) {
@@ -241,7 +252,7 @@ async function clearCacheAndStorage() {
   }
 }
 
-// A-Frame Komponente: schlank – nur Größe/Dispose
+// Minimal-Komponente: Größe/Dispose
 AFRAME.registerComponent('point-cloud', {
   schema: { size: { default: 0.02 } },
   update: function (oldData) {
@@ -253,14 +264,38 @@ AFRAME.registerComponent('point-cloud', {
   remove: function () {
     const obj = this.el.getObject3D('mesh');
     if (obj) {
-      if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) obj.material.dispose();
+      obj.geometry?.dispose();
+      obj.material?.dispose();
       this.el.removeObject3D('mesh');
     }
   }
 });
 
+// Fit-to-View: komplette Punktwolke im Bild
+function fitPointCloudToView(entity, padding = 1.1) {
+  const camEl = document.getElementById('main-camera');
+  if (!camEl) return;
+  const camObj = camEl.getObject3D('camera');
+  if (!camObj) return;
+  const points = entity.getObject3D('mesh');
+  if (!points) return;
 
+  const geom = points.geometry;
+  if (!geom.boundingSphere) geom.computeBoundingSphere();
+  const r = Math.max(geom.boundingSphere?.radius || 1, 0.0001);
+
+  const fovV = THREE.MathUtils.degToRad(camObj.fov || 60);
+  const aspect = camObj.aspect || (window.innerWidth / Math.max(1, window.innerHeight));
+  const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect);
+
+  const distV = r / Math.tan(fovV / 2);
+  const distH = r / Math.tan(fovH / 2);
+  const dist = Math.max(distV, distH) * padding;
+  const camY = camEl.object3D.position.y || 0;
+
+  entity.object3D.position.set(0, camY, -dist);
+  entity.object3D.updateMatrixWorld(true);
+}
 
 // Animation: RGB → XYZ
 function transformToXYZ() {
@@ -268,6 +303,10 @@ function transformToXYZ() {
   if (!entity) return;
   const points = entity.getObject3D('mesh');
   if (!points) return;
+
+  const myToken = ++transformToken;
+  isAnimatingTransform = true;
+  setXYZButtonEnabled(false);
 
   const geometry = points.geometry;
   const positions = geometry.attributes.position.array;
@@ -290,6 +329,7 @@ function transformToXYZ() {
   const startTime = Date.now();
 
   function animate() {
+    if (myToken !== transformToken) return; // abgebrochen
     const elapsed = Date.now() - startTime;
     progress = Math.min(elapsed / duration, 1);
     const eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
@@ -302,19 +342,26 @@ function transformToXYZ() {
     if (progress < 1) {
       requestAnimationFrame(animate);
     } else {
-      geometry.computeBoundingSphere(); // nur einmal am Ende
+      if (myToken !== transformToken) return;
+      geometry.computeBoundingSphere();
       startRotation(entity);
+      isAnimatingTransform = false;
+      setXYZButtonEnabled(true);
     }
   }
   animate();
 }
 
-// Animation: XYZ → RGB (zurück ins Grid)
+// Animation: XYZ → RGB
 function revertToRGB() {
   const entity = document.getElementById('current-pointcloud');
   if (!entity) return;
   const points = entity.getObject3D('mesh');
   if (!points) return;
+
+  const myToken = ++transformToken;
+  isAnimatingTransform = true;
+  setXYZButtonEnabled(false);
 
   const geometry = points.geometry;
   const positions = geometry.attributes.position.array;
@@ -343,6 +390,7 @@ function revertToRGB() {
   const startTime = Date.now();
 
   function animateReverse() {
+    if (myToken !== transformToken) return; // abgebrochen
     const elapsed = Date.now() - startTime;
     progress = Math.min(elapsed / duration, 1);
     const eased = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2;
@@ -355,11 +403,15 @@ function revertToRGB() {
     if (progress < 1) {
       requestAnimationFrame(animateReverse);
     } else {
+      if (myToken !== transformToken) return;
       geometry.computeBoundingSphere();
+      isXYZMode = false;
+      setXYZButtonState();
+      setXYZButtonEnabled(true);
+      fitPointCloudToView(entity, 1.1);
     }
   }
   animateReverse();
-  fitPointCloudToView(pointCloudEntity, 1.1);
 }
 
 function startRotation(entity) {
@@ -373,11 +425,11 @@ function startRotation(entity) {
   });
 }
 
-// Top-level loader from cache (used after storing)
+// Top-level loader from cache
 async function loadPointCloudFromStorage() {
   const data = await readBinaryFromCache(pcConfig.maxDimension);
   if (data) {
-    renderPointCloudFromBytes(data.width, data.height, data.pixels, { maxPoints: 300000 });
+    renderPointCloudFromBytes(data.width, data.height, data.pixels, { maxPoints: (window.PC_MAX_POINTS || 300000) });
   } else {
     console.error('No pointcloud data found in cache/localStorage for current resolution.');
   }
@@ -386,7 +438,6 @@ async function loadPointCloudFromStorage() {
 // ImageBitmap laden – optional früh skalieren
 async function loadImageBitmap(imageUrl, targetMaxDim) {
   const wantResize = typeof targetMaxDim === 'number' && targetMaxDim > 0;
-
   if (imageUrl.startsWith('data:')) {
     const img = await new Promise((resolve, reject) => {
       const im = new Image();
@@ -418,13 +469,17 @@ async function loadImageBitmap(imageUrl, targetMaxDim) {
   }
 }
 
-let currentProcessToken = 0;
-
-// Process image: draw to canvas, optional downscale, pack, and store
+// Bild verarbeiten (Downscale, packen, cachen, rendern)
 async function processImage(imageUrl, options = {}) {
   const token = ++currentProcessToken; // Cancel-Token
   try {
     const maxDim = (typeof options.maxDimension === 'number') ? options.maxDimension : pcConfig.maxDimension;
+
+    // Jede neue Verarbeitung: Animation abbrechen, Button sperren, Modus reset
+    cancelActiveTransform();
+    isXYZMode = false;
+    setXYZButtonState();
+    setXYZButtonEnabled(false);
 
     if (imageUrl && imageUrl.startsWith('data:')) {
       try {
@@ -441,7 +496,7 @@ async function processImage(imageUrl, options = {}) {
     const targetWidth = imageBitmap.width;
     const targetHeight = imageBitmap.height;
 
-    // Canvas (Offscreen wenn möglich)
+    // Canvas
     let canvas, ctx;
     if (typeof OffscreenCanvas !== 'undefined') {
       canvas = new OffscreenCanvas(targetWidth, targetHeight);
@@ -459,26 +514,27 @@ async function processImage(imageUrl, options = {}) {
     const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
     const pixelBytes = packPixels(imageData, targetWidth, targetHeight);
 
-    // Canvas-Speicher freigeben
+    // Canvas freigeben
     if (!(canvas instanceof OffscreenCanvas)) {
       canvas.width = canvas.height = 0;
     }
-    canvas = null;
-    ctx = null;
+    canvas = null; ctx = null;
 
     if (token !== currentProcessToken) return;
 
-    // Cache speichern und alte Auflösungen entfernen
+    // Cache schreiben und andere Auflösungen entfernen
     await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, maxDim);
     await pruneCacheExcept(maxDim);
 
     if (token !== currentProcessToken) return;
 
-    // Direkt rendern (inkl. Decimation)
-    renderPointCloudFromBytes(targetWidth, targetHeight, pixelBytes, { maxPoints: 300000 });
+    // Rendern (Decimation)
+    renderPointCloudFromBytes(targetWidth, targetHeight, pixelBytes, { maxPoints: (window.PC_MAX_POINTS || 300000) });
 
+    setXYZButtonEnabled(true);
   } catch (e) {
     console.error('Error processing image:', e);
+    setXYZButtonEnabled(true);
   }
 }
 
@@ -503,7 +559,7 @@ function renderPointCloudFromBytes(width, height, pixels, { maxPoints = 300000 }
     entity = document.createElement('a-entity');
     entity.id = 'current-pointcloud';
     entity.setAttribute('position', '0 0 -2');
-    entity.setAttribute('point-cloud', { size: 0.02 }); // nur Größe
+    entity.setAttribute('point-cloud', { size: 0.02 });
     scene.appendChild(entity);
   }
 
@@ -528,7 +584,6 @@ function renderPointCloudFromBytes(width, height, pixels, { maxPoints = 300000 }
       positions[k]     = (x / width - 0.5) * scale;
       positions[k + 1] = -(y / height - 0.5) * scale * (height / width);
       positions[k + 2] = 0;
-
       colors[k]     = pixels[idx] / 255;
       colors[k + 1] = pixels[idx + 1] / 255;
       colors[k + 2] = pixels[idx + 2] / 255;
@@ -545,10 +600,12 @@ function renderPointCloudFromBytes(width, height, pixels, { maxPoints = 300000 }
 
   const size = parseFloat(entity.getAttribute('point-cloud')?.size) || 0.02;
   const material = new THREE.PointsMaterial({ size, vertexColors: true, sizeAttenuation: true });
+
   const points = new THREE.Points(geometry, material);
   entity.setObject3D('mesh', points);
+
   // Danach passend ins Sichtfeld setzen
-  fitPointCloudToView(entity, 1.1); // 10% Rand
+  fitPointCloudToView(entity, 1.1);
 }
 
 // Cache nur für aktuelle Auflösung behalten
@@ -557,7 +614,6 @@ async function pruneCacheExcept(maxDimKeep) {
   const cache = await caches.open(CACHE_NAME);
   const requests = await cache.keys();
   const { binKey: keepBin, metaKey: keepMeta } = getKeysFor(maxDimKeep);
-
   for (const req of requests) {
     const url = req.url || '';
     const shouldDelete =
@@ -569,7 +625,7 @@ async function pruneCacheExcept(maxDimKeep) {
   }
 }
 
-// Desktop Modus Event Listener
+// Desktop: bei Resize refitten; nach exit-vr ebenfalls
 window.addEventListener('resize', () => {
   const entity = document.getElementById('current-pointcloud');
   if (entity) fitPointCloudToView(entity, 1.1);
@@ -577,46 +633,39 @@ window.addEventListener('resize', () => {
 
 const scene = document.querySelector('a-scene');
 if (scene) {
+  scene.addEventListener('enter-vr', () => {
+    const panel = document.getElementById('vr-control-panel');
+    const fileInput = document.getElementById('fileInput');
+    const loading = document.getElementById('loading');
+    const message = document.getElementById('message');
+    if (panel) panel.style.display = 'none';
+    if (fileInput) fileInput.style.display = 'none';
+    if (loading) loading.style.display = 'none';
+    if (message) message.style.display = 'none';
+  });
   scene.addEventListener('exit-vr', () => {
+    const panel = document.getElementById('vr-control-panel');
+    const fileInput = document.getElementById('fileInput');
+    const message = document.getElementById('message');
+    if (panel) panel.style.display = 'block';
+    if (fileInput) fileInput.style.display = 'block';
+    if (message) message.style.display = 'block';
     const entity = document.getElementById('current-pointcloud');
     if (entity) fitPointCloudToView(entity, 1.1);
   });
+
+  // Optional: WebGL Context Loss Debug
+  scene.addEventListener('render-target-loaded', () => {
+    const glCanvas = scene.renderer?.getContext?.()?.canvas;
+    if (!glCanvas) return;
+    glCanvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.warn('WebGL context lost'); });
+    glCanvas.addEventListener('webglcontextrestored', () => { console.warn('WebGL context restored'); });
+  });
 }
 
-// VR-Modus Event Listener für UI-Sichtbarkeit
-document.addEventListener('DOMContentLoaded', () => {
-  const scene = document.querySelector('a-scene');
-  if (scene) {
-    scene.addEventListener('enter-vr', () => {
-      const panel = document.getElementById('vr-control-panel');
-      const fileInput = document.getElementById('fileInput');
-      const loading = document.getElementById('loading');
-      const message = document.getElementById('message');
-      if (panel) panel.style.display = 'none';
-      if (fileInput) fileInput.style.display = 'none';
-      if (loading) loading.style.display = 'none';
-      if (message) message.style.display = 'none';
-    });
-    scene.addEventListener('exit-vr', () => {
-      const panel = document.getElementById('vr-control-panel');
-      const fileInput = document.getElementById('fileInput');
-      const message = document.getElementById('message');
-      if (panel) panel.style.display = 'block';
-      if (fileInput) fileInput.style.display = 'block';
-      if (message) message.style.display = 'block';
-    });
-
-    // Optional: WebGL Context Loss Debug
-    scene.addEventListener('render-target-loaded', () => {
-      const glCanvas = scene.renderer?.getContext?.()?.canvas;
-      if (!glCanvas) return;
-      glCanvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.warn('WebGL context lost'); });
-      glCanvas.addEventListener('webglcontextrestored', () => { console.warn('WebGL context restored'); });
-    });
-  }
-});
-
 // Initialisierung
-loadPointCloudFromStorage();
-createVRControlPanel();
+ensureFreshStorage().then(() => {
+  loadPointCloudFromStorage();
+  createVRControlPanel();
+});
 // LZString should be included in the HTML for the small localStorage backup support.
