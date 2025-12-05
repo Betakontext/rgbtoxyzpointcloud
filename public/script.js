@@ -61,7 +61,33 @@ function createVRControlPanel() {
 
     document.body.appendChild(panel);
 
-    // ENTFERNT: File Input Handler (wird von upload.js behandelt)
+    // XYZ Transform Button Handler - HIER HINZUFÜGEN
+    let isXYZMode = false;
+
+    const xyzBtn = document.getElementById('pc-xyz-transform');
+    if (xyzBtn) {
+        xyzBtn.addEventListener('click', () => {
+            const pointCloudEntity = document.querySelector('[point-cloud]');
+            if (!pointCloudEntity) {
+                console.warn('No point cloud found');
+                return;
+            }
+
+            if (!isXYZMode) {
+                console.log('Starting XYZ transformation');
+                transformToXYZ();
+                isXYZMode = true;
+                xyzBtn.textContent = 'Back to RGB';
+                xyzBtn.style.background = '#FF9800';
+            } else {
+                console.log('Reverting to RGB');
+                revertToRGB();
+                isXYZMode = false;
+                xyzBtn.textContent = 'XYZ Pointcloud';
+                xyzBtn.style.background = '#4CAF50';
+            }
+        });
+    }
 
     // Max Dimension Handler
     const maxDimInput = document.getElementById('pc-max-dim');
@@ -89,33 +115,6 @@ function createVRControlPanel() {
     });
 }
 
-// XYZ Transform Button Handler
-let isXYZMode = false;
-
-const xyzBtn = document.getElementById('pc-xyz-transform');
-if (xyzBtn) {
-    xyzBtn.addEventListener('click', () => {
-        const pointCloudEntity = document.querySelector('[point-cloud]');
-        if (!pointCloudEntity) {
-            console.warn('No point cloud found');
-            return;
-        }
-
-        if (!isXYZMode) {
-            console.log('Starting XYZ transformation');
-            transformToXYZ();
-            isXYZMode = true;
-            xyzBtn.textContent = 'Back to RGB';
-            xyzBtn.style.background = '#FF9800';
-        } else {
-            console.log('Reverting to RGB');
-            revertToRGB();
-            isXYZMode = false;
-            xyzBtn.textContent = 'XYZ Pointcloud';
-            xyzBtn.style.background = '#4CAF50';
-        }
-    });
-}
 
 function getKeysFor(maxDim) {
   const dim = (typeof maxDim === 'number') ? maxDim : pcConfig.maxDimension;
@@ -632,7 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Initialisierung
-createVRControlPanel();
 loadPointCloudFromStorage();
+createVRControlPanel();
 
 // LZString should be included in the HTML for the small localStorage backup support.
