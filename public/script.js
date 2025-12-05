@@ -45,15 +45,18 @@ function createVRControlPanel() {
     `;
 
     panel.innerHTML = `
-        <div style="margin-bottom: 10px;"><strong>PointCloud VR</strong></div>
-        <label style="display: block; margin-bottom: 8px;">
-            Max Dimension (px):
-            <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}"
-                   style="width: 70px; padding: 4px;">
-        </label>
-        <button id="pc-clear-cache" style="width: 100%; padding: 6px; cursor: pointer;">
-            Clear Cache
-        </button>
+      <div style="margin-bottom: 10px;"><strong>PointCloud VR</strong></div>
+      <label style="display: block; margin-bottom: 8px;">
+          Max Dimension (px):
+          <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}"
+                style="width: 70px; padding: 4px;">
+      </label>
+      <button id="pc-xyz-transform" style="width: 100%; padding: 6px; cursor: pointer; margin-bottom: 8px; background: #4CAF50; color: white;">
+          XYZ Pointcloud
+      </button>
+      <button id="pc-clear-cache" style="width: 100%; padding: 6px; cursor: pointer;">
+          Clear Cache
+      </button>
     `;
 
     document.body.appendChild(panel);
@@ -75,6 +78,10 @@ function createVRControlPanel() {
     const clearBtn = document.getElementById('pc-clear-cache');
     clearBtn.addEventListener('click', async () => {
         await clearCacheAndStorage();
+        const xyzBtn = document.getElementById('pc-xyz-transform');
+        xyzBtn.addEventListener('click', () => {
+            transformToXYZ();
+        });
         const fileInput = document.getElementById('fileInput');
         if (fileInput) fileInput.value = '';
         const oldCloud = document.querySelector('[point-cloud]');
@@ -235,6 +242,17 @@ AFRAME.registerComponent('point-cloud', {
                 sizeAttenuation: true
             });
 
+            /*
+            // Optional Material : Downsizing for VR
+            const material = new THREE.PointsMaterial({
+                size: data.size,
+                vertexColors: true,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            */
+
             // Points Object
             const points = new THREE.Points(geometry, material);
 
@@ -264,6 +282,83 @@ AFRAME.registerComponent('point-cloud', {
         this.el.removeObject3D('mesh');
     }
 });
+
+function transformToXYZ() {
+    const pointCloudEntity = document.querySelector('[point-cloud]');
+    if (!pointCloudEntity) {
+        console.warn('No point cloud found');
+        return;
+    }
+
+    const points = pointCloudEntity.getObject3D('mesh');
+    if (!points) return;
+
+    const geometry = points.geometry;
+    const positions = geometry.attributes.position.array;
+    const colors = geometry.attributes.color.array;
+
+    // Speichere Original-Positionen für Animation
+    const originalPositions = new Float32Array(positions);
+    const targetPositions = new Float32Array(positions.length);
+
+    // Berechne XYZ-Zielpositionen basierend auf RGB
+    for (let i = 0; i < positions.length; i += 3) {
+        const r = colors[i] * 255;
+        const g = colors[i + 1] * 255;
+        const b = colors[i + 2] * 255;
+
+        // RGB → XYZ Mapping (wie im ersten Script)
+        targetPositions[i]     = ((r / 255) * 50 - 25) + (Math.random() - 0.5);
+        targetPositions[i + 1] = ((g / 255) * 50 - 25) + (Math.random() - 0.5);
+        targetPositions[i + 2] = ((b / 255) * 50 - 25) + (Math.random() - 0.5);
+    }
+
+    // Animation
+    let progress = 0;
+    const duration = 2000; // 2 Sekunden
+    const startTime = Date.now();
+
+    function animate() {
+        const elapsed = Date.now() - startTime;
+        progress = Math.min(elapsed / duration, 1);
+
+        // Easing function (easeInOutCubic)
+        const eased = progress < 0.5
+            ? 4 * progress * progress * progress
+            : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+        // Interpoliere Positionen
+        for (let i = 0; i < positions.length; i++) {
+            positions[i] = originalPositions[i] + (targetPositions[i] - originalPositions[i]) * eased;
+        }
+
+        geometry.attributes.position.needsUpdate = true;
+        geometry.computeBoundingSphere();
+
+        if (progress < 1) {
+            requestAnimationFrame(animate);
+        } else {
+            // Starte Rotation nach Animation
+            startRotation(pointCloudEntity);
+        }
+    }
+
+    animate();
+}
+
+function startRotation(entity) {
+    // Entferne alte Animation falls vorhanden
+    entity.removeAttribute('animation__rotate');
+
+    // Füge Rotation hinzu
+    entity.setAttribute('animation__rotate', {
+        property: 'rotation',
+        to: '360 360 0',
+        loop: true,
+        dur: 60000,
+        easing: 'linear'
+    });
+}
 
 // Top-level loader from cache (used after storing)
 async function loadPointCloudFromStorage() {
