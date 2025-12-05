@@ -21,38 +21,13 @@ function debounce(fn, wait) {
   };
 }
 
-// Create a simple control panel if not present in DOM
-function ensureControlPanel() {
-  if (document.getElementById('pc-control-panel')) return;
 
-  const panel = document.createElement('div');
-  panel.id = 'pc-control-panel';
-  panel.style.position = 'fixed';
-  panel.style.top = '10px';
-  panel.style.right = '10px';
-  panel.style.background = 'rgba(255,255,255,0.95)';
-  panel.style.border = '1px solid #ccc';
-  panel.style.padding = '8px';
-  panel.style.zIndex = 9999;
-  panel.style.fontFamily = 'sans-serif';
-  panel.style.fontSize = '13px';
-  panel.style.maxWidth = '240px';
 
-  panel.innerHTML = `
-    <div style="margin-bottom:6px;"><strong>PointCloud Controls</strong></div>
-    <label>Max dimension (px, 0 = full): <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}" style="width:80px;" /></label>
-    <div style="height:6px"></div>
-    <div style="height:6px"></div>
-    <button id="pc-clear-cache">Clear Cache</button>
-  `;
-
-  document.body.appendChild(panel);
-
-  const maxDimInput = document.getElementById('pc-max-dim');
-  const clearBtn = document.getElementById('pc-clear-cache');
-
-  // Erstelle einfaches Control Panel für VR
+// Erstelle einfaches Control Panel für VR
 function createVRControlPanel() {
+    const existingPanel = document.getElementById('vr-control-panel');
+    if (existingPanel) return; // Bereits vorhanden
+
     const panel = document.createElement('div');
     panel.id = 'vr-control-panel';
     panel.style.cssText = `
@@ -83,25 +58,28 @@ function createVRControlPanel() {
 
     document.body.appendChild(panel);
 
-    // Event Listener
-    const maxDimInput = document.getElementById('pc-max-dim');
-    const clearBtn = document.getElementById('pc-clear-cache');
+    // ENTFERNT: File Input Handler (wird von upload.js behandelt)
 
+    // Max Dimension Handler
+    const maxDimInput = document.getElementById('pc-max-dim');
     maxDimInput.addEventListener('input', () => {
         const v = parseInt(maxDimInput.value, 10);
         pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
-        processImage(
-            sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY),
-            { maxDimension: pcConfig.maxDimension }
-        );
+        const lastImage = sessionStorage.getItem(LAST_IMAGE_KEY) || localStorage.getItem(LAST_IMAGE_KEY);
+        if (lastImage) {
+            processImage(lastImage, { maxDimension: pcConfig.maxDimension });
+        }
     });
 
+    // Clear Cache Handler
+    const clearBtn = document.getElementById('pc-clear-cache');
     clearBtn.addEventListener('click', async () => {
         await clearCacheAndStorage();
-        document.getElementById('fileInput').value = '';
+        const fileInput = document.getElementById('fileInput');
+        if (fileInput) fileInput.value = '';
         const oldCloud = document.querySelector('[point-cloud]');
         if (oldCloud) oldCloud.remove();
-        alert('Cache and localStorage backup cleared.');
+        alert('Cache cleared.');
     });
 }
 
@@ -290,55 +268,60 @@ async function loadPointCloudFromStorage() {
 
 // Process image: draw to canvas, optional downscale, pack, and store
 async function processImage(imageUrl, options = {}) {
-  try {
-    ensureControlPanel();
+    try {
+        // ENTFERNT: ensureControlPanel();
 
-    const maxDim = (typeof options.maxDimension === 'number') ? options.maxDimension : pcConfig.maxDimension;
+        const maxDim = (typeof options.maxDimension === 'number') ? options.maxDimension : pcConfig.maxDimension;
 
-    // Persist the last image Data URL so reloads/changes work without re-upload
-    if (imageUrl && imageUrl.startsWith('data:')) {
-      try {
-        sessionStorage.setItem(LAST_IMAGE_KEY, imageUrl);
-      } catch (e) {
-        try { localStorage.setItem(LAST_IMAGE_KEY, imageUrl); } catch (e2) { /* ignore */ }
-      }
+        // Persist the last image Data URL so reloads/changes work without re-upload
+        if (imageUrl && imageUrl.startsWith('data:')) {
+            try {
+                sessionStorage.setItem(LAST_IMAGE_KEY, imageUrl);
+            } catch (e) {
+                try { localStorage.setItem(LAST_IMAGE_KEY, imageUrl); } catch (e2) { /* ignore */ }
+            }
+        }
+
+        // GEÄNDERT: Entferne nur die alte Punktwolke, NICHT den gesamten Container
+        const oldCloud = document.querySelector('[point-cloud]');
+        if (oldCloud) {
+            console.log('Removing old point cloud');
+            oldCloud.remove();
+        }
+
+        const imageBitmap = await loadImageBitmap(imageUrl);
+        if (!imageBitmap) throw new Error('Failed to create ImageBitmap');
+
+        let targetWidth = imageBitmap.width;
+        let targetHeight = imageBitmap.height;
+
+        if (maxDim > 0) {
+            const longest = Math.max(imageBitmap.width, imageBitmap.height);
+            if (longest > maxDim) {
+                const scale = maxDim / longest;
+                targetWidth = Math.max(1, Math.floor(imageBitmap.width * scale));
+                targetHeight = Math.max(1, Math.floor(imageBitmap.height * scale));
+            }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
+
+        const pixelBytes = packPixels(imageData, targetWidth, targetHeight);
+
+        // Store to cache (binary) and then load
+        await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, maxDim);
+        await loadPointCloudFromStorage();
+    } catch (e) {
+        console.error('Error processing image:', e);
     }
-
-    // clear previous point cloud container
-    const container = document.getElementById('pointcloud-container');
-    while (container.firstChild) container.removeChild(container.firstChild);
-
-    const imageBitmap = await loadImageBitmap(imageUrl);
-    if (!imageBitmap) throw new Error('Failed to create ImageBitmap');
-
-    let targetWidth = imageBitmap.width;
-    let targetHeight = imageBitmap.height;
-
-    if (maxDim > 0) {
-      const longest = Math.max(imageBitmap.width, imageBitmap.height);
-      if (longest > maxDim) {
-        const scale = maxDim / longest;
-        targetWidth = Math.max(1, Math.floor(imageBitmap.width * scale));
-        targetHeight = Math.max(1, Math.floor(imageBitmap.height * scale));
-      }
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
-    const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight);
-
-    const pixelBytes = packPixels(imageData, targetWidth, targetHeight);
-
-    // Store to cache (binary) and then load
-    await storeBinaryToCache(pixelBytes, targetWidth, targetHeight, maxDim);
-    await loadPointCloudFromStorage();
-  } catch (e) {
-    console.error('Error processing image:', e);
-  }
 }
+
+
 
 async function loadImageBitmap(imageUrl) {
   if (imageUrl.startsWith('data:')) {
@@ -356,6 +339,98 @@ async function loadImageBitmap(imageUrl) {
   }
 }
 
+function renderPointCloudFromBytes(width, height, pixels) {
+    console.log(`Rendering point cloud: ${width}x${height} pixels (${pixels.length} bytes)`);
+
+    const scene = document.querySelector('a-scene');
+    if (!scene) {
+        console.error('A-Frame scene not found');
+        return;
+    }
+
+    // Entferne alte Punktwolke
+    const oldCloud = document.querySelector('[point-cloud]');
+    if (oldCloud) {
+        console.log('Removing old point cloud');
+        oldCloud.remove();
+    }
+
+    // Erstelle Vertices und Colors Arrays
+    const vertices = [];
+    const colors = [];
+
+    // Skalierungsfaktor für bessere Sichtbarkeit
+    const scale = 5;
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 3;
+
+            // Position (zentriert)
+            const posX = (x / width - 0.5) * scale;
+            const posY = -(y / height - 0.5) * scale * (height / width); // Aspect Ratio korrigieren
+            const posZ = 0;
+
+            vertices.push(posX, posY, posZ);
+
+            // Farbe (normalisiert 0-1)
+            colors.push(
+                pixels[idx] / 255,
+                pixels[idx + 1] / 255,
+                pixels[idx + 2] / 255
+            );
+        }
+    }
+
+    console.log(`Creating entity with ${vertices.length / 3} points`);
+
+    // Erstelle Entity mit point-cloud Komponente
+    const entity = document.createElement('a-entity');
+    entity.setAttribute('point-cloud', {
+        vertices: vertices.join(','),
+        colors: colors.join(','),
+        size: 0.03
+    });
+    entity.setAttribute('position', '0 1.6 -3');
+    entity.setAttribute('id', 'current-pointcloud');
+
+    scene.appendChild(entity);
+    console.log('Point cloud successfully added to scene');
+}
+
+
+// VR-Modus Event Listener für UI-Sichtbarkeit
+document.addEventListener('DOMContentLoaded', () => {
+    const scene = document.querySelector('a-scene');
+
+    if (scene) {
+        scene.addEventListener('enter-vr', () => {
+            console.log('Entering VR mode');
+            const panel = document.getElementById('vr-control-panel');
+            const fileInput = document.getElementById('fileInput');
+            const loading = document.getElementById('loading');
+            const message = document.getElementById('message');
+
+            if (panel) panel.style.display = 'none';
+            if (fileInput) fileInput.style.display = 'none';
+            if (loading) loading.style.display = 'none';
+            if (message) message.style.display = 'none';
+        });
+
+        scene.addEventListener('exit-vr', () => {
+            console.log('Exiting VR mode');
+            const panel = document.getElementById('vr-control-panel');
+            const fileInput = document.getElementById('fileInput');
+            const message = document.getElementById('message');
+
+            if (panel) panel.style.display = 'block';
+            if (fileInput) fileInput.style.display = 'block';
+            if (message) message.style.display = 'block';
+        });
+    }
+});
+
+// Initialisierung
 createVRControlPanel();
 loadPointCloudFromStorage();
 
