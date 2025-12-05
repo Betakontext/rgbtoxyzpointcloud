@@ -1,37 +1,37 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Pixel Point Cloud VR</title>
-    <link rel="stylesheet" href="styles.css">
-
-    <!-- A-Frame (lädt THREE.js automatisch) -->
-    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
-
-    <!-- ENTFERNT: THREE.js wird von A-Frame geladen -->
-    <!-- <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js"></script> -->
-
-    <!-- LZString -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Pixel Point Cloud VR</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- A-Frame (lädt THREE.js automatisch) -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+  <!-- LZString -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
-
 <body>
-    <input id="fileInput" type="file" accept="image/*,.avif,.heif,.tiff,.tif" />
-    <div id="loading" style="display: none;">Processing...</div>
-    <div id="message"></div>
+  <input id="fileInput" type="file" accept="image/*,.avif,.heif,.tiff,.tif" />
+  <div id="loading" style="display:none;">Processing...</div>
+  <div id="message"></div>
 
-    <!-- A-Frame Scene -->
-    <a-scene id="pointcloud-container" embedded background="color: #000000">
-        <a-entity id="camera-rig" movement-controls="speed: 0.5">
-            <a-camera id="main-camera" position="0 1.6 0" look-controls></a-camera>
-            <a-entity laser-controls="hand: left"></a-entity>
-            <a-entity laser-controls="hand: right"></a-entity>
-        </a-entity>
-    </a-scene>
+  <!-- A-Frame Scene (eine einzige!) -->
+  <a-scene
+    id="pointcloud-container"
+    background="color: #000000"
+    renderer="antialias: false; precision: mediump; alpha: false; powerPreference: high-performance"
+    webxr="requiredFeatures: local-floor; optionalFeatures: bounded-floor,hand-tracking"
+    embedded background="color: #000000">
+    <!-- embedded entfernen, wenn Vollbild/VR-App bevorzugt -->
+    <a-entity id="camera-rig" movement-controls="speed: 0.5">
+      <a-camera id="main-camera" position="0 1.6 0" look-controls></a-camera>
+      <a-entity laser-controls="hand: left"></a-entity>
+      <a-entity laser-controls="hand: right"></a-entity>
+    </a-entity>
+  </a-scene>
 
-    <script src="upload.js"></script>
-    <script src="script.js"></script>
+  <script src="upload.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
