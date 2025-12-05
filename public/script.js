@@ -201,7 +201,7 @@ async function clearCacheAndStorage() {
 }
 
 
-// A-Frame Component für Punktwolken-Rendering
+//	A-Frame	Component für Punktwolken-Rendering
 AFRAME.registerComponent('point-cloud', {
     schema: {
         vertices: { type: 'string' },
@@ -210,39 +210,57 @@ AFRAME.registerComponent('point-cloud', {
     },
 
     init: function() {
+        console.log('point-cloud component init');
         const data = this.data;
         const el = this.el;
 
-        // Parse Daten
-        const verticesArray = data.vertices.split(',').map(Number);
-        const colorsArray = data.colors.split(',').map(Number);
+        try {
+            // Parse Daten
+            const verticesArray = data.vertices.split(',').map(Number);
+            const colorsArray = data.colors.split(',').map(Number);
 
-        // Three.js Geometrie erstellen
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position',
-            new THREE.Float32BufferAttribute(verticesArray, 3));
-        geometry.setAttribute('color',
-            new THREE.Float32BufferAttribute(colorsArray, 3));
+            console.log(`Parsed ${verticesArray.length / 3} vertices and ${colorsArray.length / 3} colors`);
 
-        // Material
-        const material = new THREE.PointsMaterial({
-            size: data.size,
-            vertexColors: true,
-            sizeAttenuation: true
-        });
+            // Three.js Geometrie erstellen
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position',
+                new THREE.BufferAttribute(new Float32Array(verticesArray), 3));
+            geometry.setAttribute('color',
+                new THREE.BufferAttribute(new Float32Array(colorsArray), 3));
 
-        // Points Object
-        const points = new THREE.Points(geometry, material);
-        el.setObject3D('mesh', points);
+            // Material
+            const material = new THREE.PointsMaterial({
+                size: data.size,
+                vertexColors: true,
+                sizeAttenuation: true
+            });
+
+            // Points Object
+            const points = new THREE.Points(geometry, material);
+
+            // Überprüfe, ob points ein gültiges Object3D ist
+            if (!(points instanceof THREE.Object3D)) {
+                console.error('points is not a THREE.Object3D:', points);
+                return;
+            }
+
+            console.log('Setting object3D:', points);
+            el.setObject3D('mesh', points);
+            console.log('point-cloud component initialized successfully');
+        } catch (e) {
+            console.error('Error in point-cloud component init:', e);
+        }
     },
 
     update: function(oldData) {
         if (oldData.vertices !== this.data.vertices) {
+            console.log('point-cloud data changed, reinitializing');
             this.init();
         }
     },
 
     remove: function() {
+        console.log('Removing point-cloud component');
         this.el.removeObject3D('mesh');
     }
 });
