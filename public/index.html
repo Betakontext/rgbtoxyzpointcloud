@@ -1,100 +1,87 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
+  <!-- 1️⃣  Viewport‑Tag, das in VR‑Browsern zuverlässig funktioniert -->
   <meta name="viewport"
-      content="width=device-width, initial-scale=1,
-               user-scalable=no,
-               maximum-scale=1,
-               minimum-scale=1" />
+        content="width=device-width,initial-scale=1,
+                 user-scalable=no,
+                 maximum-scale=1,
+                 minimum-scale=1">
   <title>3D Pixel Point Cloud VR</title>
-  <link rel="stylesheet" href="styles.css" />
-  <!-- A-Frame (lädt THREE automatisch) -->
+
+  <!-- 2️⃣  Stylesheet (kann extern liegen) -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- 3️⃣  A‑Frame (inkl. Extras) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
-  <!-- LZString (Backup) -->
+
+  <!-- 4️⃣  LZString (Backup‑Kompression) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
+
 <body>
-  <!--<input id="fileInput" type="file" accept="image/*,.avif,.heif,.tiff,.tif" /> -->
-
-  <div id="loading" style="display:none;">Processing...</div>
+  <!-- UI‑Hinweise -->
+  <div id="loading" style="display:none;">Processing…</div>
   <div id="message"></div>
-  <div id="upload-wrapper" style="position:fixed;top:10px;left:10px;z-index:10000;">
-  <!-- Das echte <input> bleibt, aber ist unsichtbar -->
+
+  <!-- --------------------------------------------------------------
+       1️⃣  Upload‑Button (Datei‑Auswahl)
+       -------------------------------------------------------------- -->
+  <div id="upload-wrapper"
+       style="position:fixed;top:10px;left:10px;z-index:10000;">
     <input id="fileInput"
-            type="file"
-            accept="image/*,.avif,.heif,.tiff,.tif"
-            style="display:none;" />
+           type="file"
+           accept="image/*,.avif,.heif,.tiff,.tif"
+           style="display:none;">
+    <!-- Das eigentliche „Button‑Aussehen“ -->
+    <label for="fileInput" class="btn">Upload image</label>
+  </div>
 
-    <!-- Unser sichtbarer Button -->
-    <label for="fileInput"
-            id="fileBtn"
-            style="
-            display:inline-block;
-            padding:6px 12px;
-            background:#4CAF50;
-            color:#fff;
-            cursor:pointer;
-            border-radius:4px;
-            font-family:sans-serif;
-            font-size:13px;
-            ">
-        Upload image
-    </label>
-    </div>
-
-    <!-- --------------------------------------------------------------
-        2️⃣  URL‑Eingabe (direkt unter dem Upload‑Button)
-    -------------------------------------------------------------- -->
-    <div id="url-wrapper"
-        style="position:fixed;top:50px;left:10px;z-index:10000;max-width:260px;">
+  <!-- --------------------------------------------------------------
+       2️⃣  URL‑Eingabe + Button‑Reihe (Upload | Load‑from‑URL)
+       -------------------------------------------------------------- -->
+  <div id="url-wrapper"
+       style="position:fixed;top:50px;left:10px;z-index:10000;max-width:260px;">
+    <!-- Eingabefeld – 100 % Breite des Wrappers -->
     <input id="imageUrlInput"
-            type="url"
-            placeholder="https://example.com/mein‑bild.jpg"
-            style="
-            width:100%;
-            padding:5px;
-            margin-bottom:4px;
-            font-size:13px;
-            border:1px solid #555;
-            border-radius:3px;
-            background:#222;
-            color:#fff;
-            " />
-    <button id="loadUrlBtn"
-            style="
-                width:100%;
-                padding:5px;
-                background:#2196F3;
-                color:#fff;
-                border:none;
-                border-radius:3px;
-                cursor:pointer;
-                font-size:13px;
-            ">
-        Load image URL
-    </button>
+           type="url"
+           placeholder="https://example.com/mein‑bild.jpg"
+           class="url-input">
+
+    <!-- Flex‑Reihe mit zwei gleich breiten Buttons -->
+    <div class="button-row">
+      <!-- 1️⃣ Upload‑Button – wir duplizieren das <label>, damit es nebeneinander liegt -->
+      <label for="fileInput" class="btn">Upload image</label>
+
+      <!-- 2️⃣ Load‑from‑URL‑Button -->
+      <button id="loadUrlBtn" class="btn">Load from URL</button>
     </div>
+  </div>
 
-<script src="upload.js"></script>
-
-  <!-- Eine einzige A-Frame Scene -->
-  <a-scene
-    id="pointcloud-container"
-    background="color: #000"
-    embedded
-    renderer="antialias: true; precision: mediump; alpha: false; embedded; powerPreference: high-performance"
-    webxr="requiredFeatures: local-floor; optionalFeatures: bounded-floor,hand-tracking"
-  >
-    <a-entity id="camera-rig" movement-controls="speed: 0.2">
-      <a-camera id="main-camera" position="0 1.6 0" look-controls></a-camera>
-      <a-entity laser-controls="hand: left"></a-entity>
-      <a-entity laser-controls="hand: right"></a-entity>
+  <!-- --------------------------------------------------------------
+       3️⃣  A‑Frame‑Scene (einzige Szene)
+       -------------------------------------------------------------- -->
+  <a-scene id="pointcloud-container"
+           background="color:#000"
+           embedded                                 <!-- wichtig für VR‑Browser -->
+           renderer="antialias:true;precision:mediump"
+           webxr="requiredFeatures: local-floor;
+                  optionalFeatures: bounded-floor,hand-tracking">
+    <a-entity id="camera-rig" movement-controls="speed:0.5">
+      <a-camera id="main-camera"
+                position="0 1.6 0"
+                look-controls></a-camera>
+      <a-entity laser-controls="hand:left"></a-entity>
+      <a-entity laser-controls="hand:right"></a-entity>
     </a-entity>
   </a-scene>
 
-<script src="script.js"></script>
-
+  <!-- --------------------------------------------------------------
+       4️⃣  Skripte (Upload‑Logik & Point‑Cloud‑Logik)
+       -------------------------------------------------------------- -->
+  <script src="upload.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
