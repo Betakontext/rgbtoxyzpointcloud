@@ -1,6 +1,6 @@
 /*=====================================================================
-  upload.js –  Datei‑Upload + Bild‑von‑URL‑Upload
-  (alle Listener erst nach DOM‑Ready, sichere Zugriffe auf UI‑Elemente)
+  upload.js – Datei‑Upload + Bild‑von‑URL‑Upload
+  (alle Listener erst nach DOM‑Ready, Click‑Handler per Delegation)
 =====================================================================*/
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,10 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
      -------------------------------------------------------------- */
 
   /**
-   * Entfernt alle im Cache gespeicherten Point‑Cloud‑Dateien und
-   * löscht die lokalen Back‑ups.  Wird vor jedem neuen Upload
-   * (Datei oder URL) aufgerufen, damit kein altes Bild mehr im
-   * Hintergrund liegt.
+   * Entfernt alle im Cache gespeicherten Point‑Cloud‑Dateien
+   * und löscht die lokalen Back‑ups.
    */
   async function clearPreviousPointcloudStorage() {
     try {
@@ -31,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('[PC] Cache‑Löschung fehlgeschlagen', e);
     }
 
-    // Lokale Back‑ups entfernen
     try {
       localStorage.removeItem('pointcloudJsonBackup');
       sessionStorage.removeItem('pc_last_image_dataurl');
@@ -43,15 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /**
    * Speichert die zuletzt geladene Bild‑URL (Data‑URL oder echte
-   * Remote‑URL) im Session‑ bzw. Local‑Storage, damit sie nach
-   * einem Reload oder nach einer Änderung der Max‑Dimension wieder
-   * verwendet werden kann.
+   * Remote‑URL) im Session‑ bzw. Local‑Storage.
    */
   function storeLastImageUrl(url) {
     try {
       sessionStorage.setItem('pc_last_image_dataurl', url);
     } catch {
-      // Fallback, falls Session‑Storage nicht verfügbar ist
       try { localStorage.setItem('pc_last_image_dataurl', url); } catch {}
     }
   }
@@ -63,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function getMaxDimensionFromUI() {
     const maxDimEl = document.getElementById('pc-max-dim');
-    if (!maxDimEl) return 0;                     // UI‑Panel noch nicht da
+    if (!maxDimEl) return 0;
     const v = parseInt(maxDimEl.value, 10);
     return isNaN(v) ? 0 : Math.max(0, v);
   }
@@ -88,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // ---- Aufräumen von altem Point‑Cloud‑Cache -----------------
+    // Aufräumen von altem Point‑Cloud‑Cache
     await clearPreviousPointcloudStorage();
 
     const loadingEl = document.getElementById('loading');
@@ -98,14 +92,14 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.onload = async e => {
       const imageUrl = e.target.result; // Data‑URL
 
-      // ---- URL (Data‑URL) für Reloads sichern -----------------
+      // URL (Data‑URL) für Reloads sichern
       storeLastImageUrl(imageUrl);
 
-      // ---- Bild verarbeiten ------------------------------------
+      // Bild verarbeiten
       const options = { maxDimension: getMaxDimensionFromUI() };
       await processImage(imageUrl, options);
 
-      // ---- UI zurücksetzen ------------------------------------
+      // UI zurücksetzen
       if (loadingEl) loadingEl.style.display = 'none';
       const msg = document.getElementById('message');
       if (msg) msg.innerText = 'Bild verarbeitet.';
@@ -122,39 +116,48 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* --------------------------------------------------------------
-     3️⃣  Bild‑von‑URL‑Upload
+     3️⃣  Bild‑von‑URL‑Upload (Event‑Delegation)
      -------------------------------------------------------------- */
-  const loadUrlBtn = document.getElementById('loadUrlBtn');
-  loadUrlBtn.addEventListener('click', async () => {
-    const url = document.getElementById('urlInput').value.trim();
+  document.body.addEventListener('click', async e => {
+    // Wir prüfen, ob das geklickte Element (oder ein Kind‑Element) den
+    // ID‑Wert "loadUrlBtn" trägt.
+    const target = e.target.closest('#loadUrlBtn');
+    if (!target) return;               // kein Klick auf den Button → nichts tun
+
+    // --------------------  Eingaben prüfen  --------------------
+    const urlInput = document.getElementById('urlInput');
+    if (!urlInput) {
+      alert('URL‑Eingabefeld nicht gefunden.');
+      return;
+    }
+    const url = urlInput.value.trim();
     if (!url) {
       alert('Bitte eine Bild‑URL eingeben.');
       return;
     }
-
-    // Einfacher Check, dass es eine http(s)‑URL ist
     if (!/^https?:\/\//i.test(url)) {
       alert('Bitte eine gültige http/https‑URL eingeben.');
       return;
     }
 
+    // --------------------  UI‑Feedback  --------------------
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'block';
     document.getElementById('message').innerText = '';
 
-    // ---- Aufräumen von altem Point‑Cloud‑Cache -----------------
+    // --------------------  Aufräumen  --------------------
     await clearPreviousPointcloudStorage();
 
     try {
-      // ---- URL für Reloads sichern ----------------------------
+      // URL für Reloads sichern
       storeLastImageUrl(url);
 
-      // ---- Bild verarbeiten (processImage kann Data‑URL oder URL) ----
+      // Bild verarbeiten (processImage kann Data‑URL oder reguläre URL)
       const options = { maxDimension: getMaxDimensionFromUI() };
       await processImage(url, options);
       document.getElementById('message').innerText = 'Bild von URL geladen.';
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       alert('Fehler beim Laden des Bildes von der URL.');
     } finally {
       if (loadingEl) loadingEl.style.display = 'none';
