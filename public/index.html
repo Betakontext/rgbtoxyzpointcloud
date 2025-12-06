@@ -8,7 +8,7 @@
                  user-scalable=no,
                  maximum-scale=1,
                  minimum-scale=1">
-  <title>3D Pixel Point Cloud VR</title>
+  <title>RGB to XYZ pointcloud VR</title>
 
   <link rel="stylesheet" href="styles.css">
 
@@ -21,34 +21,36 @@
 </head>
 
 <body>
-  <div id="loading" style="display:none;">Processing…</div>
-  <div id="message"></div>
-
-  <!-- Upload‑Button (Datei‑Auswahl) -->
-  <div id="upload-wrapper"
-       style="position:fixed;top:10px;left:10px;z-index:10000;">
-    <input id="fileInput"
-           type="file"
-           accept="image/*,.avif,.heif,.tiff,.tif"
-           style="display:none;">
-    <label for="fileInput" class="btn">Upload image</label>
-  </div>
-
   <!-- A‑Frame‑Scene (einzige Szene) -->
   <a-scene id="pointcloud-container"
            background="color:#000"
-           embedded
+
            renderer="antialias:true;precision:mediump"
+           vr-mode-ui="enabled: true"
            webxr="requiredFeatures: local-floor;
                   optionalFeatures: bounded-floor,hand-tracking">
-    <a-entity id="camera-rig" movement-controls="speed:0.5">
+      <a-entity id="camera-rig" movement-controls="speed:0.3">
       <a-camera id="main-camera"
                 position="0 1.6 0"
                 look-controls></a-camera>
       <a-entity laser-controls="hand:left"></a-entity>
       <a-entity laser-controls="hand:right"></a-entity>
     </a-entity>
+
   </a-scene>
+
+  <div id="loading" style="display:none;">Processing…</div>
+  <div id="message"></div>
+
+  <!-- Upload‑Button (Datei‑Auswahl) -->
+  <div id="upload-wrapper">
+    <input id="fileInput"
+           type="file"
+           accept="image/*,.avif,.heif,.tiff,.tif"
+           style="display:none;">
+    <label for="fileInput" class="">Upload image</label>
+  </div>
+
 
   <script src="upload.js"></script>
   <script src="script.js"></script>
