@@ -80,3 +80,43 @@ document.getElementById('fileInput').addEventListener('change', async function (
 
   reader.readAsDataURL(file); // Read file as Data URL for browser compatibility
 });
+
+
+
+/* --------------------------------------------------------------
+   2️⃣  Bild‑von‑URL laden
+   -------------------------------------------------------------- */
+document.getElementById('loadUrlBtn').addEventListener('click', async () => {
+  const url = document.getElementById('imageUrlInput').value.trim();
+  if (!url) {
+    alert('Bitte eine Bild‑URL eingeben.');
+    return;
+  }
+
+  // Optional: einfache Validierung, dass es sich um ein Bild handelt
+  if (!url.match(/\.(jpe?g|png|gif|webp|bmp|avif|heic?|tiff?)$/i)) {
+    if (!confirm('Die URL sieht nicht nach einem Bild aus. Trotzdem fortfahren?')) {
+      return;
+    }
+  }
+
+  const loadingEl = document.getElementById('loading');
+  if (loadingEl) loadingEl.style.display = 'block';
+
+  try {
+    // Wir nutzen die gleiche `processImage`‑Funktion wie beim File‑Upload.
+    // `processImage` erwartet eine URL (Data‑URL oder remote URL).
+    await processImage(url, {
+      maxDimension: parseInt(document.getElementById('pc-max-dim')?.value, 10) || 0
+    });
+
+    // UI‑Feedback
+    const msg = document.getElementById('message');
+    if (msg) msg.innerText = 'Bild von URL geladen.';
+  } catch (e) {
+    console.error('URL‑Bild konnte nicht geladen werden:', e);
+    alert('Fehler beim Laden des Bildes. Siehe Konsole für Details.');
+  } finally {
+    if (loadingEl) loadingEl.style.display = 'none';
+  }
+});
