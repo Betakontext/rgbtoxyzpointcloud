@@ -1,123 +1,16 @@
 /*=====================================================================
   upload.js –  Datei‑Upload + Bild‑von‑URL‑Upload
-  (alle Listener werden erst nach DOM‑Ready registriert)
+  (alle Listener erst nach DOM‑Ready, sichere Zugriffe auf UI‑Elemente)
 =====================================================================*/
 
 document.addEventListener('DOMContentLoaded', () => {
   /* --------------------------------------------------------------
-     1️⃣  Datei‑Upload (unverändert, nur leicht umstrukturiert)
-     -------------------------------------------------------------- */
-  const fileInput = document.getElementById('fileInput');
-  fileInput.addEventListener('change', async function (event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Nur Bild‑MIME‑Typen zulassen
-    if (!file.type || !file.type.startsWith('image/')) {
-      alert('Bitte ein Bild auswählen.');
-      return;
-    }
-
-    // Optional: Warnung bei sehr großen Dateien
-    const maxWarnBytes = 10 * 1024 * 1024; // 10 MiB
-    if (file.size > maxWarnBytes && !confirm('Die Datei ist >10 MiB. Weiter?')) {
-      return;
-    }
-
-    // ---- Vorherige Point‑Cloud‑Daten entfernen -----------------
-    await clearPreviousPointcloudStorage();
-
-    const loadingEl = document.getElementById('loading');
-    if (loadingEl) loadingEl.style.display = 'block';
-
-    const reader = new FileReader();
-    reader.onload = async e => {
-      const imageUrl = e.target.result; // Data‑URL
-
-      // ---- URL (Data‑URL) für Reloads sichern -----------------
-      storeLastImageUrl(imageUrl);
-
-      // ---- UI‑Optionen (Max‑Dimension) auslesen ---------------
-      const maxDimEl = document.getElementById('pc-max-dim');
-      const options = {};
-      if (maxDimEl) {
-        const v = parseInt(maxDimEl.value, 10);
-        options.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
-      }
-
-      // ---- Bild verarbeiten ------------------------------------
-      await processImage(imageUrl, options);
-
-      // ---- UI zurücksetzen ------------------------------------
-      if (loadingEl) loadingEl.style.display = 'none';
-      const msg = document.getElementById('message');
-      if (msg) msg.innerText = 'Bild verarbeitet.';
-    };
-
-    reader.onerror = () => {
-      if (loadingEl) loadingEl.style.display = 'none';
-      const msg = document.getElementById('message');
-      if (msg) msg.innerText = 'Fehler beim Lesen der Datei.';
-      alert('Fehler beim Lesen der Datei.');
-    };
-
-    reader.readAsDataURL(file);
-  });
-
-  /* --------------------------------------------------------------
-     2️⃣  Bild‑von‑URL‑Upload
-     -------------------------------------------------------------- */
-  const loadUrlBtn = document.getElementById('loadUrlBtn');
-  loadUrlBtn.addEventListener('click', async () => {
-    const url = document.getElementById('urlInput').value.trim();
-    if (!url) {
-      alert('Bitte eine Bild‑URL eingeben.');
-      return;
-    }
-
-    // Einfacher Check, dass es eine http(s)‑URL ist
-    if (!/^https?:\/\//i.test(url)) {
-      alert('Bitte eine gültige http/https‑URL eingeben.');
-      return;
-    }
-
-    const loadingEl = document.getElementById('loading');
-    loadingEl.style.display = 'block';
-    document.getElementById('message').innerText = '';
-
-    // ---- Vorherige Point‑Cloud‑Daten entfernen (wie beim File‑Upload) ----
-    await clearPreviousPointcloudStorage();
-
-    // ---- Max‑Dimension aus UI übernehmen ---------------------------------
-    const maxDimEl = document.getElementById('pc-max-dim');
-    const options = {};
-    if (maxDimEl) {
-      const v = parseInt(maxDimEl.value, 10);
-      options.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
-    }
-
-    try {
-      // ---- URL für Reloads sichern ------------------------------------
-      storeLastImageUrl(url);
-
-      // ---- Bild verarbeiten (processImage kann Data‑URL oder normale URL) ----
-      await processImage(url, options);
-      document.getElementById('message').innerText = 'Bild von URL geladen.';
-    } catch (e) {
-      console.error(e);
-      alert('Fehler beim Laden des Bildes von der URL.');
-    } finally {
-      loadingEl.style.display = 'none';
-    }
-  });
-
-  /* --------------------------------------------------------------
-     3️⃣  Hilfs‑Funktionen
+     1️⃣  Hilfs‑Funktionen
      -------------------------------------------------------------- */
 
   /**
-   * Entfernt alle im Cache gespeicherten Point‑Cloud‑Dateien
-   * und löscht die lokalen Back‑ups.  Wird vor jedem neuen Upload
+   * Entfernt alle im Cache gespeicherten Point‑Cloud‑Dateien und
+   * löscht die lokalen Back‑ups.  Wird vor jedem neuen Upload
    * (Datei oder URL) aufgerufen, damit kein altes Bild mehr im
    * Hintergrund liegt.
    */
@@ -162,4 +55,109 @@ document.addEventListener('DOMContentLoaded', () => {
       try { localStorage.setItem('pc_last_image_dataurl', url); } catch {}
     }
   }
+
+  /**
+   * Liest die aktuelle Max‑Dimension aus dem UI‑Panel.
+   * Wenn das Panel (oder das Input‑Feld) noch nicht existiert,
+   * wird 0 zurückgegeben – das entspricht „Originalgröße“.
+   */
+  function getMaxDimensionFromUI() {
+    const maxDimEl = document.getElementById('pc-max-dim');
+    if (!maxDimEl) return 0;                     // UI‑Panel noch nicht da
+    const v = parseInt(maxDimEl.value, 10);
+    return isNaN(v) ? 0 : Math.max(0, v);
+  }
+
+  /* --------------------------------------------------------------
+     2️⃣  Datei‑Upload
+     -------------------------------------------------------------- */
+  const fileInput = document.getElementById('fileInput');
+  fileInput.addEventListener('change', async function (event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Nur Bild‑MIME‑Typen zulassen
+    if (!file.type || !file.type.startsWith('image/')) {
+      alert('Bitte ein Bild auswählen.');
+      return;
+    }
+
+    // Optional: Warnung bei sehr großen Dateien
+    const maxWarnBytes = 10 * 1024 * 1024; // 10 MiB
+    if (file.size > maxWarnBytes && !confirm('Die Datei ist >10 MiB. Weiter?')) {
+      return;
+    }
+
+    // ---- Aufräumen von altem Point‑Cloud‑Cache -----------------
+    await clearPreviousPointcloudStorage();
+
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'block';
+
+    const reader = new FileReader();
+    reader.onload = async e => {
+      const imageUrl = e.target.result; // Data‑URL
+
+      // ---- URL (Data‑URL) für Reloads sichern -----------------
+      storeLastImageUrl(imageUrl);
+
+      // ---- Bild verarbeiten ------------------------------------
+      const options = { maxDimension: getMaxDimensionFromUI() };
+      await processImage(imageUrl, options);
+
+      // ---- UI zurücksetzen ------------------------------------
+      if (loadingEl) loadingEl.style.display = 'none';
+      const msg = document.getElementById('message');
+      if (msg) msg.innerText = 'Bild verarbeitet.';
+    };
+
+    reader.onerror = () => {
+      if (loadingEl) loadingEl.style.display = 'none';
+      const msg = document.getElementById('message');
+      if (msg) msg.innerText = 'Fehler beim Lesen der Datei.';
+      alert('Fehler beim Lesen der Datei.');
+    };
+
+    reader.readAsDataURL(file);
+  });
+
+  /* --------------------------------------------------------------
+     3️⃣  Bild‑von‑URL‑Upload
+     -------------------------------------------------------------- */
+  const loadUrlBtn = document.getElementById('loadUrlBtn');
+  loadUrlBtn.addEventListener('click', async () => {
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) {
+      alert('Bitte eine Bild‑URL eingeben.');
+      return;
+    }
+
+    // Einfacher Check, dass es eine http(s)‑URL ist
+    if (!/^https?:\/\//i.test(url)) {
+      alert('Bitte eine gültige http/https‑URL eingeben.');
+      return;
+    }
+
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) loadingEl.style.display = 'block';
+    document.getElementById('message').innerText = '';
+
+    // ---- Aufräumen von altem Point‑Cloud‑Cache -----------------
+    await clearPreviousPointcloudStorage();
+
+    try {
+      // ---- URL für Reloads sichern ----------------------------
+      storeLastImageUrl(url);
+
+      // ---- Bild verarbeiten (processImage kann Data‑URL oder URL) ----
+      const options = { maxDimension: getMaxDimensionFromUI() };
+      await processImage(url, options);
+      document.getElementById('message').innerText = 'Bild von URL geladen.';
+    } catch (e) {
+      console.error(e);
+      alert('Fehler beim Laden des Bildes von der URL.');
+    } finally {
+      if (loadingEl) loadingEl.style.display = 'none';
+    }
+  });
 });
