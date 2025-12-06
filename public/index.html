@@ -2,11 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport"
-      content="width=device-width, initial-scale=1,
-               user-scalable=no,
-               maximum-scale=1,
-               minimum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>3D Pixel Point Cloud VR</title>
   <link rel="stylesheet" href="styles.css" />
   <!-- A-Frame (lädt THREE automatisch) -->
@@ -82,12 +78,11 @@
   <!-- Eine einzige A-Frame Scene -->
   <a-scene
     id="pointcloud-container"
-    background="color: #000"
-    embedded
-    renderer="antialias: true; precision: mediump; alpha: false; embedded; powerPreference: high-performance"
+    background="color: #000000"
+    renderer="antialias: false; precision: mediump; alpha: false; powerPreference: high-performance"
     webxr="requiredFeatures: local-floor; optionalFeatures: bounded-floor,hand-tracking"
   >
-    <a-entity id="camera-rig" movement-controls="speed: 0.2">
+    <a-entity id="camera-rig" movement-controls="speed: 0.5">
       <a-camera id="main-camera" position="0 1.6 0" look-controls></a-camera>
       <a-entity laser-controls="hand: left"></a-entity>
       <a-entity laser-controls="hand: right"></a-entity>
