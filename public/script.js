@@ -368,19 +368,18 @@ async function loadImageBitmap(url, maxDim) {
    -------------------------------------------------------------- */
 async function processImage(imageUrl, options = {}) {
   const token = ++currentProcessToken; // Cancel‑Token
+  const maxDim = typeof options.maxDimension === 'number'
+                 ? options.maxDimension
+                 : pcConfig.maxDimension;   // ← neue Zeile
 
   try {
-    // … (Vorbereitung, Cache‑Löschen, etc.)
-
-    // 4️⃣ Bitmap holen (inkl. evtl. Downscale)
+    // 1️⃣ Bitmap holen (inkl. evtl. Downscale)
     const bitmap = await loadImageBitmap(imageUrl, maxDim);
     if (token !== currentProcessToken) { bitmap?.close?.(); return; }
 
     const w = bitmap.width, h = bitmap.height;
 
-    // --------------------------------------------------------------
-    // 5️⃣ Canvas → ImageData → RGB‑Bytes (robuster Canvas‑Fallback)
-    // --------------------------------------------------------------
+    // 2️⃣ Canvas → ImageData → RGB‑Bytes (Fallback, funktioniert überall)
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
@@ -393,13 +392,16 @@ async function processImage(imageUrl, options = {}) {
     ctx.drawImage(bitmap, 0, 0, w, h);
     bitmap.close?.();
 
-    const imgData = ctx.getImageData(0, 0, w, h);
+    const imgData    = ctx.getImageData(0, 0, w, h);
     const pixelBytes = packPixels(imgData);
 
     // Canvas wieder freigeben
     canvas.width = canvas.height = 0;
 
-    // … (Cache‑Speichern, Rendern, UI‑Aktivierung)
+    // 3️⃣ In Cache speichern … und sofort rendern
+    await storeBinaryToCache(pixelBytes, w, h, maxDim);
+    // Direkt rendern, ohne erneut aus dem Cache zu lesen
+    renderPointCloudFromBytes(w, h, pixelBytes, { maxPoints: 300_000 });
   } catch (e) {
     console.error('[PC] processImage error', e);
     setXYZButtonEnabled(true);
@@ -558,8 +560,6 @@ function revertToRGB() {
 
 /*--- UI‑Panel (max‑Dim, XYZ‑Button, Cache‑Clear) ----------------------*/
 function createVRControlPanel() {
-  // (siehe oben – unverändert, nur hier eingefügt, weil wir die
-  //   setXYZButtonState‑/‑Enabled‑Logik benötigen)
   const existing = document.getElementById('vr-control-panel');
   if (existing) return;
 
@@ -570,44 +570,68 @@ function createVRControlPanel() {
     background:rgba(0,0,0,0.8);color:#fff;
     padding:15px;border-radius:8px;
     font-family:sans-serif;font-size:12px;
-    z-index:10000;max-width:220px;
+    z-index:10000;max-width:260px;
   `;
+
+  // ----- bestehender Inhalt (Max‑Dim, XYZ‑Button, Clear‑Cache) -----
   panel.innerHTML = `
     <div style="margin-bottom:10px;"><strong>PointCloud VR</strong></div>
+
     <label style="display:block;margin-bottom:8px;">
       Max Dimension (px):
       <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}"
              style="width:80px;padding:4px;">
     </label>
+
     <button id="pc-xyz-transform"
             style="width:100%;padding:6px;margin-bottom:8px;background:#4CAF00;color:#fff;">
       XYZ Pointcloud
     </button>
+
     <button id="pc-clear-cache"
-            style="width:100%;padding:6px;">Clear Cache</button>
+            style="width:100%;padding:6px;margin-bottom:8px;">Clear Cache</button>
+
+    <!-- --------------------------------------------------------------
+         Neu: URL‑Eingabe + „Upload image“ / „Load from URL“‑Buttons
+         -------------------------------------------------------------- -->
+    <label style="display:block;margin:8px 0 4px 0;">
+      Image URL:
+      <input id="imageUrlInput" type="url"
+             placeholder="https://example.com/mein‑bild.jpg"
+             class="url-input"
+             style="width:100%;margin-top:4px;">
+    </label>
+
+    <div class="button-row">
+      <!-- Upload‑Button (Label, öffnet den versteckten <input>) -->
+      <label for="fileInput" class="btn"
+             style="margin:0;">Upload image</label>
+
+      <!-- Load‑from‑URL‑Button -->
+      <button id="loadUrlBtn" class="btn"
+              style="margin:0;">Load from URL</button>
+    </div>
   `;
+
   document.body.appendChild(panel);
 
-  // ---- Button‑Handler -------------------------------------------------
+  /* ---------- Button‑Handler (wie vorher) ---------- */
   const xyzBtn = document.getElementById('pc-xyz-transform');
   xyzBtn.addEventListener('click', () => {
-    if (isAnimatingTransform) return; // keine Umschaltung während Animation
+    if (isAnimatingTransform) return;
     if (!isXYZMode) {
       transformToXYZ();
       isXYZMode = true;
     } else {
-      revertToRGB(); // setzt isXYZMode intern zurück
+      revertToRGB();               // setzt isXYZMode intern zurück
     }
     setXYZButtonState();
   });
 
-  // ---- Max‑Dimension‑Handler (debounced) -----------------------------
   const maxDimInput = document.getElementById('pc-max-dim');
   maxDimInput.addEventListener('input', debounce(() => {
     const v = parseInt(maxDimInput.value, 10);
     pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
-
-    // Bild neu rendern mit neuer Auflösung
     cancelActiveTransform();
     isXYZMode = false;
     setXYZButtonState();
@@ -617,7 +641,6 @@ function createVRControlPanel() {
     if (last) processImage(last, { maxDimension: pcConfig.maxDimension });
   }, 300));
 
-  // ---- Cache‑Clear ----------------------------------------------------
   const clearBtn = document.getElementById('pc-clear-cache');
   clearBtn.addEventListener('click', async () => {
     await clearCacheAndStorage();
@@ -631,12 +654,6 @@ function createVRControlPanel() {
     alert('Cache cleared.');
   });
 }
-
-/*--- Resize‑ und VR‑Events (Fit‑to‑View) --------------------------------*/
-window.addEventListener('resize', () => {
-  const ent = document.getElementById('current-pointcloud');
-  if (ent) fitPointCloudToView(ent, 1.1);
-});
 
 document.addEventListener('DOMContentLoaded', () => {
   const scene = document.querySelector('a-scene');
@@ -662,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /*--- Initialisierung ----------------------------------------------------*/
-ensureFreshStorage().then(() => {
+  ensureFreshStorage().then(() => {
   loadPointCloudFromStorage();   // <-- erstes Bild wird sofort zentriert
   createVRControlPanel();        // UI‑Panel erzeugen
 });
