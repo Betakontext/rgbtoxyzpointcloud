@@ -125,28 +125,31 @@ async function storeBinaryToCache(pixels, w, h, maxDim) {
     return false;
   }
 }
+
+
 async function readBinaryFromCache(maxDim) {
   const keys = getKeysFor(maxDim);
   if ('caches' in window) {
     try {
       const cache = await caches.open(CACHE_NAME);
       const metaResp = await cache.match(keys.metaKey);
-      const binResp  = await cache.match(keys.binKey);
+      const binResp = await cache.match(keys.binKey);
       if (metaResp && binResp) {
         const meta = await metaResp.json();
-        const ab   = await binResp.arrayBuffer();
-        const pix  = new Uint8Array(ab);
+        const ab = await binResp.arrayBuffer();
+        const pix = new Uint8Array(ab);
         if (pix.length !== meta.width * meta.height * 3) {
-          console.warn('[PC] pixel‑size mismatch');
+          console.warn('[PC] pixelsize mismatch');
           return null;
         }
         return { width: meta.width, height: meta.height, pixels: pix };
       }
     } catch (e) {
-      console.warn('[PC] Cache read error – trying localStorage', e);
+      console.warn('[PC] Cache‑Read‑Fehler, fallback zu localStorage', e);
     }
   }
-  // fallback: localStorage backup
+
+  // Fallback: localStorage‑Backup (wie vorher)
   try {
     const comp = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (comp) {
@@ -154,10 +157,11 @@ async function readBinaryFromCache(maxDim) {
       return { width: obj.width, height: obj.height, pixels: new Uint8Array(obj.pixels) };
     }
   } catch (e) {
-    console.warn('[PC] localStorage restore failed', e);
+    console.warn('[PC] localStorage‑Restore‑Fehler', e);
   }
   return null;
 }
+
 async function clearCacheAndStorage() {
   try {
     if ('caches' in window) {
@@ -359,64 +363,45 @@ async function loadImageBitmap(url, maxDim) {
   return bmp;
 }
 
-/*--- Bild‑Verarbeitung ---------------------------------------------------*/
+/* --------------------------------------------------------------
+   Bild → Canvas → ImageData → RGB‑Bytes
+   -------------------------------------------------------------- */
 async function processImage(imageUrl, options = {}) {
-  const token = ++currentProcessToken;            // Cancel‑Token
+  const token = ++currentProcessToken; // Cancel‑Token
+  const maxDim = typeof options.maxDimension === 'number'
+                 ? options.maxDimension
+                 : pcConfig.maxDimension;   // ← neue Zeile
 
   try {
-    const maxDim = (typeof options.maxDimension === 'number')
-      ? options.maxDimension
-      : pcConfig.maxDimension;
-
-    // 1️⃣ Abbruch laufender Animationen & UI‑Reset
-    cancelActiveTransform();                     // stoppt Rotation & XYZ‑Animation
-    isXYZMode = false;
-    setXYZButtonState();
-    setXYZButtonEnabled(false);
-
-    // 2️⃣ Data‑URL sichern (für Reloads)
-    if (imageUrl.startsWith('data:')) {
-      try { sessionStorage.setItem(LAST_IMAGE_KEY, imageUrl); }
-      catch { try { localStorage.setItem(LAST_IMAGE_KEY, imageUrl); } catch {} }
-    }
-
-    // 3️⃣ Bitmap holen (inkl. evtl. Down‑Scale)
+    // 1️⃣ Bitmap holen (inkl. evtl. Downscale)
     const bitmap = await loadImageBitmap(imageUrl, maxDim);
     if (token !== currentProcessToken) { bitmap?.close?.(); return; }
-    if (!bitmap) throw new Error('Bitmap creation failed');
 
     const w = bitmap.width, h = bitmap.height;
 
-    // 4️⃣ Canvas → ImageData → RGB‑Bytes
-    let canvas, ctx;
-    if (typeof OffscreenCanvas !== 'undefined') {
-      canvas = new OffscreenCanvas(w, h);
-      ctx = canvas.getContext('2d', { willReadFrequently: true });
-    } else {
-      canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      ctx = canvas.getContext('2d', { willReadFrequently: true });
+    // 2️⃣ Canvas → ImageData → RGB‑Bytes (Fallback, funktioniert überall)
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    if (!ctx) {
+      throw new Error('2D‑Canvas‑Context nicht verfügbar');
     }
+
     ctx.drawImage(bitmap, 0, 0, w, h);
     bitmap.close?.();
-    const imgData = ctx.getImageData(0, 0, w, h);
+
+    const imgData    = ctx.getImageData(0, 0, w, h);
     const pixelBytes = packPixels(imgData);
 
-    // 5️⃣ Canvas freigeben
-    if (!(canvas instanceof OffscreenCanvas)) { canvas.width = canvas.height = 0; }
-    canvas = null; ctx = null;
-    if (token !== currentProcessToken) return;
+    // Canvas wieder freigeben
+    canvas.width = canvas.height = 0;
 
-    // 6️⃣ Cache speichern + alte Auflösungen entfernen
+    // 3️⃣ In Cache speichern … und sofort rendern
     await storeBinaryToCache(pixelBytes, w, h, maxDim);
-    await pruneCacheExcept(maxDim);
-    if (token !== currentProcessToken) return;
-
-    // 7️⃣ Rendern (inkl. Fit‑to‑View)
+    // Direkt rendern, ohne erneut aus dem Cache zu lesen
     renderPointCloudFromBytes(w, h, pixelBytes, { maxPoints: 300_000 });
-
-    // 8️⃣ UI wieder aktivieren
-    setXYZButtonEnabled(true);
   } catch (e) {
     console.error('[PC] processImage error', e);
     setXYZButtonEnabled(true);
@@ -427,7 +412,7 @@ async function processImage(imageUrl, options = {}) {
 async function loadPointCloudFromStorage() {
   const data = await readBinaryFromCache(pcConfig.maxDimension);
   if (data) {
-    cancelActiveTransform();          // sicherstellen, dass keine Rotation mehr läuft
+    cancelActiveTransform(); // sicherstellen, dass keine Rotation läuft
     isXYZMode = false;
     setXYZButtonState();
     renderPointCloudFromBytes(data.width, data.height, data.pixels, { maxPoints: 300_000 });
@@ -573,24 +558,8 @@ function revertToRGB() {
   animate();
 }
 
-/*--- Laden aus Cache beim Start (Tab‑Reload) ---------------------------*/
-async function loadPointCloudFromStorage() {
-  const data = await readBinaryFromCache(pcConfig.maxDimension);
-  if (data) {
-    // Vor dem Rendern sicherstellen, dass kein vorheriger Transform‑State aktiv ist
-    cancelActiveTransform();
-    isXYZMode = false;
-    setXYZButtonState();
-    renderPointCloudFromBytes(data.width, data.height, data.pixels, { maxPoints: 300_000 });
-  } else {
-    console.log('[PC] no cached pointcloud – waiting for user upload');
-  }
-}
-
 /*--- UI‑Panel (max‑Dim, XYZ‑Button, Cache‑Clear) ----------------------*/
 function createVRControlPanel() {
-  // (siehe oben – unverändert, nur hier eingefügt, weil wir die
-  //   setXYZButtonState‑/‑Enabled‑Logik benötigen)
   const existing = document.getElementById('vr-control-panel');
   if (existing) return;
 
@@ -601,44 +570,68 @@ function createVRControlPanel() {
     background:rgba(0,0,0,0.8);color:#fff;
     padding:15px;border-radius:8px;
     font-family:sans-serif;font-size:12px;
-    z-index:10000;max-width:220px;
+    z-index:10000;max-width:260px;
   `;
+
+  // ----- bestehender Inhalt (Max‑Dim, XYZ‑Button, Clear‑Cache) -----
   panel.innerHTML = `
     <div style="margin-bottom:10px;"><strong>PointCloud VR</strong></div>
+
     <label style="display:block;margin-bottom:8px;">
       Max Dimension (px):
       <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}"
              style="width:80px;padding:4px;">
     </label>
+
     <button id="pc-xyz-transform"
             style="width:100%;padding:6px;margin-bottom:8px;background:#4CAF00;color:#fff;">
       XYZ Pointcloud
     </button>
+
     <button id="pc-clear-cache"
-            style="width:100%;padding:6px;">Clear Cache</button>
+            style="width:100%;padding:6px;margin-bottom:8px;">Clear Cache</button>
+
+    <!-- --------------------------------------------------------------
+         Neu: URL‑Eingabe + „Upload image“ / „Load from URL“‑Buttons
+         -------------------------------------------------------------- -->
+    <label style="display:block;margin:8px 0 4px 0;">
+      Image URL:
+      <input id="imageUrlInput" type="url"
+             placeholder="https://example.com/mein‑bild.jpg"
+             class="url-input"
+             style="width:100%;margin-top:4px;">
+    </label>
+
+    <div class="button-row">
+      <!-- Upload‑Button (Label, öffnet den versteckten <input>) -->
+      <label for="fileInput" class="btn"
+             style="margin:0;">Upload image</label>
+
+      <!-- Load‑from‑URL‑Button -->
+      <button id="loadUrlBtn" class="btn"
+              style="margin:0;">Load from URL</button>
+    </div>
   `;
+
   document.body.appendChild(panel);
 
-  // ---- Button‑Handler -------------------------------------------------
+  /* ---------- Button‑Handler (wie vorher) ---------- */
   const xyzBtn = document.getElementById('pc-xyz-transform');
   xyzBtn.addEventListener('click', () => {
-    if (isAnimatingTransform) return; // keine Umschaltung während Animation
+    if (isAnimatingTransform) return;
     if (!isXYZMode) {
       transformToXYZ();
       isXYZMode = true;
     } else {
-      revertToRGB(); // setzt isXYZMode intern zurück
+      revertToRGB();               // setzt isXYZMode intern zurück
     }
     setXYZButtonState();
   });
 
-  // ---- Max‑Dimension‑Handler (debounced) -----------------------------
   const maxDimInput = document.getElementById('pc-max-dim');
   maxDimInput.addEventListener('input', debounce(() => {
     const v = parseInt(maxDimInput.value, 10);
     pcConfig.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
-
-    // Bild neu rendern mit neuer Auflösung
     cancelActiveTransform();
     isXYZMode = false;
     setXYZButtonState();
@@ -648,7 +641,6 @@ function createVRControlPanel() {
     if (last) processImage(last, { maxDimension: pcConfig.maxDimension });
   }, 300));
 
-  // ---- Cache‑Clear ----------------------------------------------------
   const clearBtn = document.getElementById('pc-clear-cache');
   clearBtn.addEventListener('click', async () => {
     await clearCacheAndStorage();
@@ -663,34 +655,31 @@ function createVRControlPanel() {
   });
 }
 
-/*--- Resize‑ und VR‑Events (Fit‑to‑View) --------------------------------*/
-window.addEventListener('resize', () => {
-  const ent = document.getElementById('current-pointcloud');
-  if (ent) fitPointCloudToView(ent, 1.1);
-});
 document.addEventListener('DOMContentLoaded', () => {
   const scene = document.querySelector('a-scene');
-  if (!scene) return;
 
-  // hide UI in VR, show again on exit
-  scene.addEventListener('enter-vr', () => {
-    ['vr-control-panel', 'fileInput', 'loading', 'message'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
+  // UI‑Ausblenden/Einblenden erst, wenn die Szene komplett geladen ist
+  scene.addEventListener('loaded', () => {
+    scene.addEventListener('enter-vr', () => {
+      ['vr-control-panel', 'fileInput', 'loading', 'message'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
     });
-  });
-  scene.addEventListener('exit-vr', () => {
-    ['vr-control-panel', 'fileInput', 'message'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'block';
+
+    scene.addEventListener('exit-vr', () => {
+      ['vr-control-panel', 'fileInput', 'message'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'block';
+      });
+      const ent = document.getElementById('current-pointcloud');
+      if (ent) fitPointCloudToView(ent, 1.1);
     });
-    const ent = document.getElementById('current-pointcloud');
-    if (ent) fitPointCloudToView(ent, 1.1);
   });
 });
 
 /*--- Initialisierung ----------------------------------------------------*/
-ensureFreshStorage().then(() => {
+  ensureFreshStorage().then(() => {
   loadPointCloudFromStorage();   // <-- erstes Bild wird sofort zentriert
   createVRControlPanel();        // UI‑Panel erzeugen
 });
