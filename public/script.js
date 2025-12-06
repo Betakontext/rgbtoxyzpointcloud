@@ -130,13 +130,22 @@ async function readBinaryFromCache(maxDim) {
   if ('caches' in window) {
     try {
       const cache = await caches.open(CACHE_NAME);
-      // … wie gehabt …
+      const metaResp = await cache.match(keys.metaKey);
+      const binResp  = await cache.match(keys.binKey);
+      if (metaResp && binResp) {
+        const meta = await metaResp.json();
+        const ab   = await binResp.arrayBuffer();
+        const pix  = new Uint8Array(ab);
+        if (pix.length !== meta.width * meta.height * 3) {
+          console.warn('[PC] pixel‑size mismatch');
+          return null;
+        }
+        return { width: meta.width, height: meta.height, pixels: pix };
+      }
     } catch (e) {
-      console.warn('[PC] Cache‑Zugriff fehlgeschlagen, nutze LocalStorage‑Fallback', e);
+      console.warn('[PC] Cache read error – trying localStorage', e);
     }
   }
-  // …fallback bleibt unverändert…
-}
   // fallback: localStorage backup
   try {
     const comp = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -378,16 +387,16 @@ async function processImage(imageUrl, options = {}) {
 
     const w = bitmap.width, h = bitmap.height;
 
-    // ----> Sicherer Fallback
-    let canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    let ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) {
-      // Wenn selbst das 2D‑Context fehlt (sehr selten), gib eine Fehlermeldung aus
-      throw new Error('2D‑Canvas‑Context nicht verfügbar');
+    // 4️⃣ Canvas → ImageData → RGB‑Bytes
+    let canvas, ctx;
+    if (typeof OffscreenCanvas !== 'undefined') {
+      canvas = new OffscreenCanvas(w, h);
+      ctx = canvas.getContext('2d', { willReadFrequently: true });
+    } else {
+      canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      ctx = canvas.getContext('2d', { willReadFrequently: true });
     }
-
     ctx.drawImage(bitmap, 0, 0, w, h);
     bitmap.close?.();
     const imgData = ctx.getImageData(0, 0, w, h);
@@ -418,7 +427,7 @@ async function processImage(imageUrl, options = {}) {
 async function loadPointCloudFromStorage() {
   const data = await readBinaryFromCache(pcConfig.maxDimension);
   if (data) {
-    cancelActiveTransform();
+    cancelActiveTransform();          // sicherstellen, dass keine Rotation mehr läuft
     isXYZMode = false;
     setXYZButtonState();
     renderPointCloudFromBytes(data.width, data.height, data.pixels, { maxPoints: 300_000 });
@@ -564,6 +573,20 @@ function revertToRGB() {
   animate();
 }
 
+/*--- Laden aus Cache beim Start (Tab‑Reload) ---------------------------*/
+async function loadPointCloudFromStorage() {
+  const data = await readBinaryFromCache(pcConfig.maxDimension);
+  if (data) {
+    // Vor dem Rendern sicherstellen, dass kein vorheriger Transform‑State aktiv ist
+    cancelActiveTransform();
+    isXYZMode = false;
+    setXYZButtonState();
+    renderPointCloudFromBytes(data.width, data.height, data.pixels, { maxPoints: 300_000 });
+  } else {
+    console.log('[PC] no cached pointcloud – waiting for user upload');
+  }
+}
+
 /*--- UI‑Panel (max‑Dim, XYZ‑Button, Cache‑Clear) ----------------------*/
 function createVRControlPanel() {
   // (siehe oben – unverändert, nur hier eingefügt, weil wir die
@@ -645,13 +668,9 @@ window.addEventListener('resize', () => {
   const ent = document.getElementById('current-pointcloud');
   if (ent) fitPointCloudToView(ent, 1.1);
 });
-
-/*--document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
   const scene = document.querySelector('a-scene');
-  if (!scene) return;*/
-
-document.querySelector('a-scene').addEventListener('loaded', () => {
-const scene = document.querySelector('a-scene');
+  if (!scene) return;
 
   // hide UI in VR, show again on exit
   scene.addEventListener('enter-vr', () => {
