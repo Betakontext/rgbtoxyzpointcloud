@@ -46,6 +46,8 @@ document.getElementById('fileInput').addEventListener('change', async function (
 
   reader.onload = async function (e) {
     const imageUrl = e.target.result; // Data URL
+    // <-- 1️⃣  URL (egal ob Data‑URL oder Remote‑URL) sichern -->
+    await storeLastImageUrl(imageUrl);               // <‑‑ neue Hilfs‑Funktion
 
     // persist last image data so reloads/resolution-changes work without re-upload
     try {
@@ -87,36 +89,57 @@ document.getElementById('fileInput').addEventListener('change', async function (
    2️⃣  Bild‑von‑URL laden
    -------------------------------------------------------------- */
 document.getElementById('loadUrlBtn').addEventListener('click', async () => {
-  const url = document.getElementById('imageUrlInput').value.trim();
+  const url = document.getElementById('urlInput').value.trim();
   if (!url) {
     alert('Bitte eine Bild‑URL eingeben.');
     return;
   }
 
-  // Optional: einfache Validierung, dass es sich um ein Bild handelt
-  if (!url.match(/\.(jpe?g|png|gif|webp|bmp|avif|heic?|tiff?)$/i)) {
-    if (!confirm('Die URL sieht nicht nach einem Bild aus. Trotzdem fortfahren?')) {
-      return;
-    }
+  // (optional) einfacher Check, dass es sich um eine http(s)‑URL handelt
+  if (!/^https?:\/\//i.test(url)) {
+    alert('Bitte eine gültige http/https‑URL eingeben.');
+    return;
   }
 
+  // UI‑Feedback
   const loadingEl = document.getElementById('loading');
-  if (loadingEl) loadingEl.style.display = 'block';
+  loadingEl.style.display = 'block';
+  document.getElementById('message').innerText = '';
+
+  // Max‑Dimension aus dem UI‑Panel übernehmen (wie beim Dateiupload)
+  const maxDimEl = document.getElementById('pc-max-dim');
+  const options = {};
+  if (maxDimEl) {
+    const v = parseInt(maxDimEl.value, 10);
+    options.maxDimension = isNaN(v) ? 0 : Math.max(0, v);
+  }
 
   try {
-    // Wir nutzen die gleiche `processImage`‑Funktion wie beim File‑Upload.
-    // `processImage` erwartet eine URL (Data‑URL oder remote URL).
-    await processImage(url, {
-      maxDimension: parseInt(document.getElementById('pc-max-dim')?.value, 10) || 0
-    });
+    // 1️⃣  URL in den „letzten Bild‑Key“ schreiben
+    await storeLastImageUrl(url);                 // <‑‑ neue Hilfs‑Funktion
 
-    // UI‑Feedback
-    const msg = document.getElementById('message');
-    if (msg) msg.innerText = 'Bild von URL geladen.';
+    // 2️⃣  Bild verarbeiten – `processImage` kann sowohl Data‑URLs
+    //     als auch reguläre URLs (CORS‑fähig) verarbeiten.
+    await processImage(url, options);
+    document.getElementById('message').innerText = 'Bild von URL geladen.';
   } catch (e) {
-    console.error('URL‑Bild konnte nicht geladen werden:', e);
-    alert('Fehler beim Laden des Bildes. Siehe Konsole für Details.');
+    console.error(e);
+    alert('Fehler beim Laden des Bildes von der URL.');
   } finally {
-    if (loadingEl) loadingEl.style.display = 'none';
+    loadingEl.style.display = 'none';
   }
 });
+
+/**
+ * Speichert die zuletzt geladene Bild‑URL (Data‑URL oder Remote‑URL)
+ * im Session‑ bzw. Local‑Storage, damit sie nach einem Reload oder
+ * nach einer Änderung der Max‑Dimension wieder verwendet werden kann.
+ */
+async function storeLastImageUrl(url) {
+  try {
+    sessionStorage.setItem('pc_last_image_dataurl', url);
+  } catch {
+    // Fallback, falls Session‑Storage nicht verfügbar ist
+    try { localStorage.setItem('pc_last_image_dataurl', url); } catch {}
+  }
+}
