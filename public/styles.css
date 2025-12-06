@@ -9,8 +9,8 @@ html, body {
 /* A-Frame Scene füllt das gesamte Fenster */
 a-scene {
   display: block;
-  position: fixed; /* aus Layoutfluss */
-  inset: 0;        /* top:0; right:0; bottom:0; left:0 */
+  position: fixed;   /* nimmt sie aus dem Layoutfluss */
+  inset: 0;          /* top:0; right:0; bottom:0; left:0 */
   width: 100vw;
   height: 100vh;
 }
@@ -19,7 +19,8 @@ a-scene {
 #fileInput,
 #loading,
 #message,
-#vr-control-panel /* Panel-ID aus script.js */
+#vr-control-panel, /* dein Panel heißt im Script 'vr-control-panel' */
+#pc-control-panel  /* falls du irgendwo noch diese ID hast */
 {
   position: fixed;
   z-index: 10000;
@@ -28,8 +29,8 @@ a-scene {
 
 /* Beispielpositionen für die UI */
 #fileInput { top: 10px; left: 10px; }
-#loading  { top: 50px; left: 10px; }
-#message  { top: 80px; left: 10px; }
+#loading { top: 50px; left: 10px; }
+#message { top: 80px; left: 10px; }
 
 /* Canvas-Element von A-Frame */
 canvas {
@@ -39,4 +40,60 @@ canvas {
 /* Optional: Safe-Area auf mobilen Browsern (Notch etc.) */
 :root {
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* --------------------------------------------------------------
+   1️⃣  Grund‑Button‑Styling – wird für beide Buttons verwendet
+   -------------------------------------------------------------- */
+.btn {
+  display: inline-flex;               /* Flex‑Item, damit Text zentriert */
+  justify-content: center;
+  align-items: center;
+  padding: 6px 0;                     /* vertikaler Abstand, Breite wird per Flex bestimmt */
+  background: #4CAF50;                /* Grundfarbe – kann pro Button überschrieben werden */
+  color: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: sans-serif;
+  font-size: 13px;
+  text-align: center;
+  user-select: none;
+}
+
+/* Load‑from‑URL‑Button bekommt eine andere Farbe */
+#loadUrlBtn {
+  background: #2196F3;
+}
+
+/* --------------------------------------------------------------
+   2️⃣  Eingabefeld – volle Breite des Wrappers
+   -------------------------------------------------------------- */
+.url-input {
+  width: 100%;
+  box-sizing: border-box;            /* Padding wird in die Breite eingerechnet */
+  padding: 5px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #222;
+  color: #fff;
+}
+
+/* --------------------------------------------------------------
+   3️⃣  Button‑Reihe – Flex‑Layout, gleiche Breite für beide Buttons
+   -------------------------------------------------------------- */
+.button-row {
+  display: flex;
+  gap: 4px;                          /* kleiner Abstand zwischen den Buttons */
+}
+
+/* Jeder Button nimmt 50 % des verfügbaren Raums ein */
+.button-row .btn {
+  flex: 1;                           /* gleiche Breite */
+}
+
+/* Optional: wenn du einen kleinen Rand um die ganze Button‑Reihe willst */
+.button-row {
+  margin-top: 4px;
 }
