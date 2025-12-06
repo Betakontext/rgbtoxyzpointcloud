@@ -1,6 +1,6 @@
 /*=====================================================================
-  upload.js – Datei‑Upload + Bild‑von‑URL‑Upload
-  (alle Listener erst nach DOM‑Ready, Click‑Handler per Delegation)
+  upload.js –  Datei‑Upload + Bild‑von‑URL‑Upload
+  (alle Listener erst nach DOM‑Ready, robustes ID‑Handling)
 =====================================================================*/
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -9,8 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
      -------------------------------------------------------------- */
 
   /**
-   * Entfernt alle im Cache gespeicherten Point‑Cloud‑Dateien
-   * und löscht die lokalen Back‑ups.
+   * Entfernt alle im Cache gespeicherten Point‑Cloud‑Dateien und
+   * löscht die lokalen Back‑ups.
    */
   async function clearPreviousPointcloudStorage() {
     try {
@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('[PC] Cache‑Löschung fehlgeschlagen', e);
     }
 
+    // Lokale Back‑ups entfernen
     try {
       localStorage.removeItem('pointcloudJsonBackup');
       sessionStorage.removeItem('pc_last_image_dataurl');
@@ -116,36 +117,34 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /* --------------------------------------------------------------
-     3️⃣  Bild‑von‑URL‑Upload (Event‑Delegation)
+     3️⃣  Bild‑von‑URL‑Upload (direkter Listener, korrekte ID)
      -------------------------------------------------------------- */
-  document.body.addEventListener('click', async e => {
-    // Wir prüfen, ob das geklickte Element (oder ein Kind‑Element) den
-    // ID‑Wert "loadUrlBtn" trägt.
-    const target = e.target.closest('#loadUrlBtn');
-    if (!target) return;               // kein Klick auf den Button → nichts tun
-
-    // --------------------  Eingaben prüfen  --------------------
-    const urlInput = document.getElementById('urlInput');
+  const loadUrlBtn = document.getElementById('loadUrlBtn');
+  loadUrlBtn.addEventListener('click', async () => {
+    // ---- Eingabefeld holen (richtige ID) ----
+    const urlInput = document.getElementById('imageUrlInput'); // <-- korrigierte ID
     if (!urlInput) {
       alert('URL‑Eingabefeld nicht gefunden.');
       return;
     }
+
     const url = urlInput.value.trim();
     if (!url) {
       alert('Bitte eine Bild‑URL eingeben.');
       return;
     }
+
+    // einfacher Check, dass es eine http(s)‑URL ist
     if (!/^https?:\/\//i.test(url)) {
       alert('Bitte eine gültige http/https‑URL eingeben.');
       return;
     }
 
-    // --------------------  UI‑Feedback  --------------------
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'block';
     document.getElementById('message').innerText = '';
 
-    // --------------------  Aufräumen  --------------------
+    // Aufräumen von altem Point‑Cloud‑Cache
     await clearPreviousPointcloudStorage();
 
     try {
@@ -156,8 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const options = { maxDimension: getMaxDimensionFromUI() };
       await processImage(url, options);
       document.getElementById('message').innerText = 'Bild von URL geladen.';
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      console.error(e);
       alert('Fehler beim Laden des Bildes von der URL.');
     } finally {
       if (loadingEl) loadingEl.style.display = 'none';
