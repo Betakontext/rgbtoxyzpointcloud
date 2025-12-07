@@ -1,7 +1,7 @@
 
-This is Betakontext/rgbtoxyzpointcloud/V05_AFrame-VR
+This is RGB to XYZ pointcloud
 
-RGBtoXYZpointcloud converts the RGB values of a picture file into a pointcloud and uses the rgb values as XYZ coordinates to animate a pointcloud. Each point gets the color value and the xyz value out of rgb values of the original pixel. V05_AFrame-VR includes an a-scene to dive into the xyzpointcloud with an Meta Quest headset.
+It converts the RGB values of a picture file into a pointcloud using the rgb values as XYZ coordinates to animate a pointcloud. Each point gets the color value and the xyz value out of rgb values of the original pixel. V05_AFrame-VR includes an a-scene to dive into the xyzpointcloud with an Meta Quest headset.
 
 ------------------
 
