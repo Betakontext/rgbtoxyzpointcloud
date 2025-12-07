@@ -83,8 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Aufräumen von altem Point‑Cloud‑Cache
-    await clearPreviousPointcloudStorage();
+    /*// Aufräumen von altem Point‑Cloud‑Cache
+    await clearPreviousPointcloudStorage();*/
 
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'block';
@@ -144,8 +144,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (loadingEl) loadingEl.style.display = 'block';
     document.getElementById('message').innerText = '';
 
-    // Aufräumen von altem Point‑Cloud‑Cache
-    await clearPreviousPointcloudStorage();
+    /*// Aufräumen von altem Point‑Cloud‑Cache
+    await clearPreviousPointcloudStorage();*/
 
     try {
       // URL für Reloads sichern

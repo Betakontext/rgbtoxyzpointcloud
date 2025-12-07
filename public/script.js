@@ -1,9 +1,5 @@
 /*=====================================================================
   3D‑Pixel‑Point‑Cloud – Haupt‑Script
-  Ziel:
-  • Bild nach Tab‑Reload sofort im Sichtfeld (kein “unteres Drittel” mehr)
-  • XYZ ↔ RGB‑Button kann beliebig oft geklickt werden
-  • Nach RGB‑Rückkehr wird das Bild wieder mittig positioniert
 =====================================================================*/
 
 ////////////////////////////////////////////////////////////
@@ -59,10 +55,10 @@ function setXYZButtonState() {
   const btn = document.getElementById('pc-xyz-transform');
   if (!btn) return;
   if (isXYZMode) {
-    btn.textContent = 'Back to RGB';
+    btn.textContent = 'RGB pointcloud';
     btn.style.background = '#FF9800';
   } else {
-    btn.textContent = 'XYZ Pointcloud';
+    btn.textContent = 'XYZ pointcloud';
     btn.style.background = '#4CAF00';
   }
 }
@@ -408,7 +404,7 @@ async function processImage(imageUrl, options = {}) {
   }
 }
 
-/*--- Laden aus Cache beim Start (Tab‑Reload) ---------------------------*/
+//*--- Laden aus Cache beim Start (Tab‑Reload) ---------------------------*/
 async function loadPointCloudFromStorage() {
   const data = await readBinaryFromCache(pcConfig.maxDimension);
   if (data) {
@@ -435,7 +431,7 @@ async function pruneCacheExcept(maxDimKeep) {
   }
 }
 
-/*--- XYZ ↔ RGB‑Animationen ---------------------------------------------*/
+/*--- Rotation ---------------------------------------------*/
 function startRotation(entity) {
   entity.removeAttribute('animation__rotate');
   entity.setAttribute('animation__rotate', {
@@ -566,40 +562,22 @@ function createVRControlPanel() {
   const panel = document.createElement('div');
   panel.id = 'vr-control-panel';
   panel.style.cssText = `
-    position:fixed;top:10px;right:10px;
+    position:fixed;top:30px;right:30px;
     background:rgba(0,0,0,0.8);color:#fff;
     padding:15px;border-radius:8px;
     font-family:sans-serif;font-size:12px;
     z-index:10000;max-width:260px;
   `;
 
-  // ----- bestehender Inhalt (Max‑Dim, XYZ‑Button, Clear‑Cache) -----
+  //* ----- bestehender Inhalt (Max‑Dim, Upload image, Load from URL, XYZ‑Button, Clear‑Cache) -----*/
+
   panel.innerHTML = `
-    <div style="margin-bottom:10px;"><strong>PointCloud VR</strong></div>
+    <div style="margin-bottom:10px;"><strong>RGB to XYZ pointcloud</strong></div>
 
     <label style="display:block;margin-bottom:8px;">
       Max Dimension (px):
       <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}"
              style="width:80px;padding:4px;">
-    </label>
-
-    <button id="pc-xyz-transform"
-            style="width:100%;padding:6px;margin-bottom:8px;background:#4CAF00;color:#fff;">
-      XYZ Pointcloud
-    </button>
-
-    <button id="pc-clear-cache"
-            style="width:100%;padding:6px;margin-bottom:8px;">Clear Cache</button>
-
-    <!-- --------------------------------------------------------------
-         Neu: URL‑Eingabe + „Upload image“ / „Load from URL“‑Buttons
-         -------------------------------------------------------------- -->
-    <label style="display:block;margin:8px 0 4px 0;">
-      Image URL:
-      <input id="imageUrlInput" type="url"
-             placeholder="https://example.com/mein‑bild.jpg"
-             class="url-input"
-             style="width:100%;margin-top:4px;">
     </label>
 
     <div class="button-row">
@@ -611,6 +589,21 @@ function createVRControlPanel() {
       <button id="loadUrlBtn" class="btn"
               style="margin:0;">Load from URL</button>
     </div>
+
+    <label style="display:block;margin:8px 0 4px 0;">
+      <input id="imageUrlInput" type="url"
+             placeholder="https://input:your-img-url-to.xyz"
+             class="url-input"
+             style="width:100%;margin-top:4px;">
+    </label>
+
+    <button id="pc-xyz-transform"
+            style="width:100%;padding:6px;margin-bottom:8px;background:#4CAF00;color:#fff;">
+      XYZ Pointcloud
+    </button>
+
+    <button id="pc-clear-cache"
+            style="width:100%;padding:6px;margin-bottom:8px;">Clear Cache</button>
   `;
 
   document.body.appendChild(panel);
@@ -679,7 +672,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /*--- Initialisierung ----------------------------------------------------*/
+  createVRControlPanel();        // UI‑Panel erzeugen
   ensureFreshStorage().then(() => {
   loadPointCloudFromStorage();   // <-- erstes Bild wird sofort zentriert
-  createVRControlPanel();        // UI‑Panel erzeugen
+
+
 });

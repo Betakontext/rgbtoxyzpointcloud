@@ -1,46 +1,60 @@
+
+.btn {
+  display: inline-flex;               /* Flex‑Item, Text zentriert */
+  justify-content: center;
+  align-items: center;
+  flex: 1;                            /* gleiche Breite in .button-row */
+  padding: 6px 0;                     /* vertikaler Abstand, Breite per Flex */
+  background: #4CAF50;                /* Grün – kann pro Button überschrieben werden */
+  color: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: sans-serif;
+  font-size: 13px;
+  text-align: center;
+  user-select: none;
+}
+
+/* Load‑from‑URL‑Button bekommt blaue Farbe */
+#loadUrlBtn { background: #2196F3; }
+
+/* --------------------------------------------------------------
+   2️⃣  Eingabefeld – volle Breite des Wrappers
+   -------------------------------------------------------------- */
+.url-input {
+  width: 100%;
+  box-sizing: border-box;            /* Padding wird in die Breite eingerechnet */
+  padding: 5px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  border: 1px solid #555;
+  border-radius: 3px;
+  background: #222;
+  color: #fff;
+}
+
+/* --------------------------------------------------------------
+   3️⃣  Button‑Reihe – Flex‑Layout, gleiche Breite für beide Buttons
+   -------------------------------------------------------------- */
+.button-row {
+  display: flex;
+  gap: 4px;                          /* kleiner Abstand zwischen den Buttons */
+}
+
+/* Optional: etwas Abstand zum Eingabefeld */
+.button-row { margin-top: 4px; }
+
+/* --------------------------------------------------------------
+   4️⃣  Grund‑Layout für den Rest der Seite (kann unverändert bleiben)
+   -------------------------------------------------------------- */
 body {
   margin: 0;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
   background: #000;
+  height: 100vh;
 }
 
 a-scene {
-    width: 100%;
-    height: 100vh;
-}
-
-#pc-control-panel {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 10000; /* Über A-Frame */
-}
-
-#pointcloud-container {
   width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-canvas {
-  display: block;
-}
-
-#fileInput {
-  position: absolute;
-  top: 10px;
-  z-index: 10; /* Ensure the file input is on top of the canvas */
-}
-
-#loading {
-  display: none;
-  color: #fff;
-  position: absolute;
-  top: 50px;
-  z-index: 10; /* Ensure the loading indicator is on top of the canvas */
+  height: 100vh;
 }
