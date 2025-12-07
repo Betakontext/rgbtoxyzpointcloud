@@ -1,5 +1,5 @@
 
-This is RGB to XYZ pointcloud
+This is RGB to XYZ pointcloud.
 
 It converts the RGB values of a picture file into a pointcloud using the rgb values as XYZ coordinates to animate a pointcloud. Each point gets the color value and the xyz value out of rgb values of the original pixel. V05_AFrame-VR includes an a-scene to dive into the xyzpointcloud with an Meta Quest headset.
 
@@ -9,7 +9,7 @@ It converts the RGB values of a picture file into a pointcloud using the rgb val
 
 https://rgbtoxyzpointcloud.vercel.app/
 
-The main branch contains the files for the last stable online Version using vercel.com for deployment, cache API and local storage for the uploaded images to create a *.json with rgb values used as xyz coordinates to process the pointcloud.
+The main branch contains the files for the last stable online Version using vercel.com for deployment, cache API and local storage for the uploaded images to create a storage for the rgb values, used as xyz coordinates to process the pointcloud.
 
 ------------------
 
