@@ -1,7 +1,7 @@
 
 This is RGB to XYZ pointcloud.
 
-It converts the RGB values of a picture file into a pointcloud using the rgb values as XYZ coordinates to animate a pointcloud. Each point gets the color value and the xyz value out of rgb values of the original pixel. V05_AFrame-VR includes an a-scene to dive into the xyzpointcloud with an Meta Quest headset.
+It converts the RGB values of a picture file into a pointcloud using the rgb values as XYZ coordinates to animate a pointcloud. Each point gets the color value and the xyz value out of rgb values of the original pixel. It includes an A-Frame scene to dive into the xyzpointcloud via MetaQuest3 headset. Other VR devices are not tested yet.
 
 ------------------
 
@@ -13,22 +13,24 @@ The main branch contains the files for the last stable online Version using verc
 
 ------------------
 
--> offline Version f.e. on Ubuntu<-
+-> offline Version for debugging and development f.e. on Ubuntu <-
 
 Navigate into the root folder of the project:
 
-bash:   sudo apt install npm
-bash:   npm init -y
+    bash:   sudo apt install npm
+    bash:   npm init -y
 
 Install necesary packages:
 
-bash:   npm install serve-static finalhandler
+    bash:   npm install serve-static finalhandler
 
 WebXR needs https, f.e. with a local certificate over mkcert:
 
-bash:   sudo apt install libnss3-tools && sudo apt install mkcert && mkcert -install
+    bash:   sudo apt install libnss3-tools && sudo apt install mkcert && mkcert -install
 
-bash:   mkcert localhost
+and
+
+    bash:   mkcert localhost
 
 this creates    ->  localhost.pem
                 ->  localhost-key.pem
@@ -38,13 +40,13 @@ in your System-Trust-Store
 files:  https-server.js, localhost-key.pem, localhost.pem
 have to be stored in the same folder as index.html, f.e. here in /public
 
-bash:   node https-server.js
+    bash:   node https-server.js
 
 ->  https://localhost:8443
 
 To stop the server:
 
-bash:   Ctrl + C
+    bash:   Ctrl + C
 
 
 To test on Meta Quest (Chromium / Wolvic):
