@@ -1,5 +1,5 @@
 
-This is RGB to XYZ pointcloud.
+This is RGBtoXYZpointcloud.
 
 It converts the RGB values of a picture file into a pointcloud using the rgb values as XYZ coordinates to animate a pointcloud. Each point gets the color value and the xyz value out of rgb values of the original pixel. It includes an A-Frame scene to dive into the xyzpointcloud via MetaQuest3 headset. Other VR devices are not tested yet.
 
