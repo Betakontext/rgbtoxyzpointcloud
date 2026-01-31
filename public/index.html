@@ -51,8 +51,18 @@
     <label for="fileInput" class="">Upload image</label>
   </div>
 
+  <!-- Beispiel-Auswahl unten links (nutzt vorhandenes Overlay-Pattern) -->
+  <div id="sample-thumbs" style="position:fixed; left:10px; bottom:10px; z-index:10000;">
+    <div class="button-row" style="display:flex; gap:4px;">
+      <img class="sample-thumb" src="img/Korallen.webp" data-image="img/Korallen.webp" alt="Corals" title="Corals" style="width:56px; height:56px; object-fit:cover; border-radius:4px; cursor:pointer;">
+      <img class="sample-thumb" src="img/Earth.webp"   data-image="img/Earth.webp"   alt="Earth"  title="Earth"  style="width:56px; height:56px; object-fit:cover; border-radius:4px; cursor:pointer;">
+      <img class="sample-thumb" src="img/Berg.webp"    data-image="img/Berg.webp"    alt="Mountains" title="Mountains" style="width:56px; height:56px; object-fit:cover; border-radius:4px; cursor:pointer;">
+    </div>
+  </div>
+
 
   <script src="upload.js"></script>
   <script src="script.js"></script>
+
 </body>
 </html>

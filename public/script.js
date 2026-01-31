@@ -401,6 +401,7 @@ async function processImage(imageUrl, options = {}) {
   } catch (e) {
     console.error('[PC] processImage error', e);
     setXYZButtonEnabled(true);
+    throw e; // WICHTIG: Fehler an Aufrufer weitergeben
   }
 }
 
@@ -654,14 +655,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // UI‑Ausblenden/Einblenden erst, wenn die Szene komplett geladen ist
   scene.addEventListener('loaded', () => {
     scene.addEventListener('enter-vr', () => {
-      ['vr-control-panel', 'fileInput', 'loading', 'message'].forEach(id => {
+      ['vr-control-panel', 'fileInput', 'loading', 'message', 'sample-thumbs'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
       });
     });
 
     scene.addEventListener('exit-vr', () => {
-      ['vr-control-panel', 'fileInput', 'message'].forEach(id => {
+      ['vr-control-panel', 'fileInput', 'message', 'sample-thumbs'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'block';
       });
@@ -674,7 +675,23 @@ document.addEventListener('DOMContentLoaded', () => {
 /*--- Initialisierung ----------------------------------------------------*/
   createVRControlPanel();        // UI‑Panel erzeugen
   ensureFreshStorage().then(() => {
-  loadPointCloudFromStorage();   // <-- erstes Bild wird sofort zentriert
 
-
+  // Wenn etwas im Cache liegt, nimm das; sonst lade Defaultbild
+  loadPointCloudFromStorage().then(() => {
+    // Prüfen, ob bereits etwas gerendert wurde
+    const hasCloud = !!document.getElementById('current-pointcloud');
+    if (!hasCloud) {
+      const scene = document.querySelector('a-scene');
+      if (!scene) return;
+      const startDefault = () => {
+        // Wähle 0 (Original) oder z.B. 1024 für Headsets
+        const options = { maxDimension: 0 };
+        processImage('img/Berg.webp', options);
+      };
+      if (scene.hasLoaded) startDefault();
+      else scene.addEventListener('loaded', startDefault, { once: true });
+    }
+  });
 });
+
+
