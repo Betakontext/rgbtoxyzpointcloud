@@ -370,7 +370,6 @@ document.addEventListener('DOMContentLoaded', () => {
     /* --------------------------------------------------------------
      Beispiel‑Thumbnail‑Loader
      -------------------------------------------------------------- */
-  document.addEventListener('DOMContentLoaded', () => {
     const thumbsWrap = document.getElementById('sample-thumbs');
     if (thumbsWrap) {
       thumbsWrap.addEventListener('click', async (ev) => {
