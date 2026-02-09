@@ -1,15 +1,13 @@
 
-This is RGBtoXYZpointcloud.
-
-It converts the RGB values of a picture file into a pointcloud using the rgb values as XYZ coordinates to animate a pointcloud. Each point gets the color value and the xyz value out of rgb values of the original pixel. It includes an A-Frame scene to dive into the xyzpointcloud via MetaQuest3 headset. Other VR devices are not tested yet.
+This is RGB to XYZ pointcloud. It converts the RGB values of a picture file into a pointcloud using the rgb values as XYZ coordinates to animate a pointcloud. Each point gets the color value and the xyz value out of rgb values of the original pixel. It includes an A-Frame scene to dive into the xyzpointcloud via MetaQuest3 headset. Other VR devices are not tested yet.
 
 ------------------
 
 -> online Version <- 
 
-https://rgbtoxyzpointcloud.vercel.app/
+https://dev.betakontext.de/pointcloud
 
-The main branch contains the files for the last stable online Version using vercel.com for deployment, cache API and local storage for the uploaded images to create a storage for the rgb values, used as xyz coordinates to process the pointcloud.
+The main branch contains the files for the last stable online Version using cache API and local storage for the uploaded images to create a storage for the rgb values. It then used the rgb values to point on xyz coordinates to process the pointcloud.
 
 ------------------
 
@@ -57,11 +55,11 @@ To test on Meta Quest (Chromium / Wolvic):
 
     ->  Remote‑Debugging
 
-
-
-
 ------------------
 
+Build with Ai assistance and deployed under MIT licence.
+CONTACT: dev@betakontext.de
+Fork, explore, build on...
 Have fun!
 
 
