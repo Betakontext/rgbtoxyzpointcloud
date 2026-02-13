@@ -30,8 +30,9 @@ To test pointclou VR on Meta Quest (Chromium / Wolvic):
     If you use a selfsigned certificate, you have to accept the security message in the Quest‑Browser.
     ->  Remote‑VR-Debugging
 ------------------
-Build with Ai assistance (Copilot, GPT 5) and deployed under MIT licence.
+Build with Ai assistance and deployed under MIT licence.
 CONTACT: dev@betakontext.de
+
 Fork, explore, build on...
 Have fun!
 
