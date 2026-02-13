@@ -1,4 +1,11 @@
-/*=====================================================================
+/*
+
+# For further developments and participations
+# visit and fork: https://github.com/betakontext/rgbtoxyzpointcloud
+# Copyright (c) 2026 Christoph Medicus
+# Licensed under the MIT License
+
+=====================================================================
   3D‑Pixel‑Point‑Cloud – Haupt‑Script
 =====================================================================*/
 

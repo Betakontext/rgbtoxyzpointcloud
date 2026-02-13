@@ -1,3 +1,9 @@
+/*
+# For further developments and participations
+# visit and fork: https://github.com/betakontext/rgbtoxyzpointcloud
+# Copyright (c) 2026 Christoph Medicus
+# Licensed under the MIT License*/
+
 // file: https-server.js
 const https = require('https');
 const fs    = require('fs');

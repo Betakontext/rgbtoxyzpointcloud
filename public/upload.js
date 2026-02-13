@@ -1,4 +1,11 @@
-/*=====================================================================
+/*
+# For further developments and participations
+# visit and fork: https://github.com/betakontext/rgbtoxyzpointcloud
+# Copyright (c) 2026 Christoph Medicus
+# Licensed under the MIT License
+
+
+=====================================================================
   upload.js –  Datei‑Upload + Bild‑von‑URL‑Upload
   (alle Listener erst nach DOM‑Ready, robustes ID‑Handling)
   + Indirekte URL-Auflösung (Wikipedia/Wikimedia + generisch via og:image)
@@ -8,7 +15,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   /* --------------------------------------------------------------
-     1️⃣  Hilfs‑Funktionen (bestehend)
+     1️⃣  Hilfs‑Funktionen
      -------------------------------------------------------------- */
 
   async function clearPreviousPointcloudStorage() {
