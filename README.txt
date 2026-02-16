@@ -23,9 +23,7 @@ To test pointcloud VR locally on Meta Quest (Chromium / Wolvic):
     ->  Offline remote‑VR-Debugging
 ------------------
 ------------------
-Fork, explore, build on...
-Have fun!
-------------------
+Fork, explore, build on...Have fun!
 ------------------
 Build with Ai assistance and deployed under MIT licence.
 CONTACT: Christoph Medicus | dev@betakontext.de
