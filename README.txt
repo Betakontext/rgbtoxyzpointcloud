@@ -9,14 +9,16 @@ The main branch contains the last stable build using cache API for browser stora
 Online Version: https://dev.betakontext.de/pointcloud
 ------------------
 Offline Version:
-    Start a local server in the root folder of the project:
+    Open the terminal inside the /public folder
+    Start a local server:
         bash:   python3 -m http.server 8000
-    To stop the server:
+        Explore n the browser: http://localhost:8000/
+    Stop the server:
         bash:   Ctrl + C
 ------------------
 To test pointcloud VR locally on Meta Quest (Chromium / Wolvic):
     Make sure to be in the same network as your PC with running local server. Find out the IP adress of your PC.
-    Open f.e. https://192.168.1.42:8443 in the Quest browser.
+    Open f.e. http://localhost:8000/ in the Quest browser.
     If you use a selfsigned certificate, you have to accept the security message in the Quest‑Browser.
     ->  Offline remote‑VR-Debugging
 ------------------
