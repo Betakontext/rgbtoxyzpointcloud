@@ -4,12 +4,12 @@
 # Licensed under the MIT License */
 
 .btn {
-  display: inline-flex;               /* Flex‑Item, Text zentriert */
+  display: inline-flex;               /* Flex item, center text */
   justify-content: center;
   align-items: center;
-  flex: 1;                            /* gleiche Breite in .button-row */
-  padding: 6px 0;                     /* vertikaler Abstand, Breite per Flex */
-  background: #4CAF50;                /* Grün – kann pro Button überschrieben werden */
+  flex: 1;                            /* equal width within .button-row */
+  padding: 6px 0;                     /* vertical spacing, width via flex */
+  background: #4CAF50;                /* green – can be overridden per button */
   color: #fff;
   cursor: pointer;
   border-radius: 4px;
@@ -19,15 +19,15 @@
   user-select: none;
 }
 
-/* Load‑from‑URL‑Button bekommt blaue Farbe */
+/* Load-from-URL button gets blue color */
 #loadUrlBtn { background: #2196F3; }
 
 /* --------------------------------------------------------------
-   2️⃣  Eingabefeld – volle Breite des Wrappers
+   2️⃣  Input field – full width of the wrapper
    -------------------------------------------------------------- */
 .url-input {
   width: 100%;
-  box-sizing: border-box;            /* Padding wird in die Breite eingerechnet */
+  box-sizing: border-box;            /* include padding in width calculation */
   padding: 5px;
   margin-bottom: 4px;
   font-size: 13px;
@@ -38,18 +38,18 @@
 }
 
 /* --------------------------------------------------------------
-   3️⃣  Button‑Reihe – Flex‑Layout, gleiche Breite für beide Buttons
+   3️⃣  Button row – flex layout, equal width for both buttons
    -------------------------------------------------------------- */
 .button-row {
   display: flex;
-  gap: 4px;                          /* kleiner Abstand zwischen den Buttons */
+  gap: 4px;                          /* small gap between buttons */
 }
 
-/* Optional: etwas Abstand zum Eingabefeld */
+/* Optional: some spacing to the input field */
 .button-row { margin-top: 4px; }
 
 /* --------------------------------------------------------------
-   4️⃣  Grund‑Layout für den Rest der Seite (kann unverändert bleiben)
+   4️⃣  Base layout for the rest of the page (can remain unchanged)
    -------------------------------------------------------------- */
 body {
   margin: 0;

@@ -7,7 +7,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <!-- Viewport‑Tag, das in VR‑Browsern zuverlässig funktioniert -->
+  <!-- Viewport tag that works reliably in VR browsers -->
   <meta name="viewport"
         content="width=device-width,initial-scale=1,
                  user-scalable=no,
@@ -17,16 +17,16 @@
 
   <link rel="stylesheet" href="styles.css">
 
-  <!-- A‑Frame (inkl. Extras) -->
+  <!-- A-Frame (including extras) -->
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
-  <!-- LZString (Backup‑Kompression) -->
+  <!-- LZString (backup compression) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
 </head>
 
 <body>
-  <!-- A‑Frame‑Scene (einzige Szene) -->
+  <!-- A-Frame scene (single scene) -->
   <a-scene id="pointcloud-container"
            background="color:#000"
 
@@ -47,7 +47,7 @@
   <div id="loading" style="display:none;">Processing…</div>
   <div id="message"></div>
 
-  <!-- Upload‑Button (Datei‑Auswahl) -->
+  <!-- Upload button (file selection) -->
   <div id="upload-wrapper">
     <input id="fileInput"
            type="file"
@@ -56,7 +56,7 @@
     <label for="fileInput" class="">Upload image</label>
   </div>
 
-  <!-- Beispiel-Auswahl unten links (nutzt vorhandenes Overlay-Pattern) -->
+  <!-- Example selection bottom left (reuses existing overlay pattern) -->
   <div id="sample-thumbs" style="position:fixed; left:10px; bottom:10px; z-index:10000;">
     <div class="button-row" style="display:flex; gap:4px;">
       <img class="sample-thumb" src="img/Korallen.webp" data-image="img/Korallen.webp" alt="Corals" title="Corals" style="width:56px; height:56px; object-fit:cover; border-radius:4px; cursor:pointer;">
@@ -64,7 +64,6 @@
       <img class="sample-thumb" src="img/Berg.webp"    data-image="img/Berg.webp"    alt="Mountains" title="Mountains" style="width:56px; height:56px; object-fit:cover; border-radius:4px; cursor:pointer;">
     </div>
   </div>
-
 
   <script src="upload.js"></script>
   <script src="script.js"></script>
