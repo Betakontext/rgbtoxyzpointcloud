@@ -1,16 +1,15 @@
 /*
-
 # For further developments and participations
 # visit and fork: https://github.com/betakontext/rgbtoxyzpointcloud
 # Copyright (c) 2026 Christoph Medicus
 # Licensed under the MIT License
 
 =====================================================================
-  3D‑Pixel‑Point‑Cloud – Haupt‑Script
+  rgbtoxyzpointcloud / 3D‑Pixel‑Point‑Cloud – Main Script
 =====================================================================*/
 
 ////////////////////////////////////////////////////////////
-// 1️⃣ Konstanten & globale Zustände
+// 1️⃣ Constants & global state
 ////////////////////////////////////////////////////////////
 const CACHE_NAME          = 'pointcloud-cache';
 const BIN_KEY_PREFIX      = '/pointcloud_';
@@ -18,19 +17,19 @@ const META_KEY_PREFIX     = '/pointcloud_meta_';
 const LOCAL_STORAGE_KEY   = 'pointcloudJsonBackup';
 const LAST_IMAGE_KEY      = 'pc_last_image_dataurl';
 
-const APP_VERSION         = '2025-12-06-01';               // ändert sich bei jedem Build
+const APP_VERSION         = '2025-12-06-01';               // changes with every build
 const STORAGE_VERSION_KEY = 'pc_storage_version';
 
-// default: 0 = original size, otherwise longest side → maxDimension
+// default: 0 = original size, otherwise longest side → maxDimension
 const pcConfig = { maxDimension: 0 };
 
-let currentProcessToken = 0;   // Bild‑Verarbeitung‑Token
-let transformToken      = 0;   // XYZ‑/‑RGB‑Animations‑Token
+let currentProcessToken = 0;   // image-processing token
+let transformToken      = 0;   // XYZ-/RGB-animation token
 let isAnimatingTransform = false;
-let isXYZMode           = false;   // aktueller Modus (RGB = false, XYZ = true)
+let isXYZMode           = false;   // current mode (RGB = false, XYZ = true)
 
 ////////////////////////////////////////////////////////////
-// 2️⃣ Hilfs‑/Utility‑Funktionen
+// 2️⃣ Helper / utility functions
 ////////////////////////////////////////////////////////////
 function debounce(fn, wait) {
   let t;
@@ -40,10 +39,9 @@ function debounce(fn, wait) {
   };
 }
 
-/*--- Cache‑Version‑Check -------------------------------------------------
-    Beim ersten Laden nach einem Build wird der gesamte Cache + Storage
-    geleert, damit kein altes Bild aus einem vorherigen Build angezeigt
-    wird. */
+/*--- Cache version check -------------------------------------------------
+    On the first load after a build, the entire cache + storage
+    is cleared so no old image from a previous build is shown. */
 async function ensureFreshStorage() {
   try {
     const stored = localStorage.getItem(STORAGE_VERSION_KEY);
@@ -57,7 +55,7 @@ async function ensureFreshStorage() {
   }
 }
 
-/*--- UI‑Helper -----------------------------------------------------------*/
+/*--- UI helpers ----------------------------------------------------------*/
 function setXYZButtonState() {
   const btn = document.getElementById('pc-xyz-transform');
   if (!btn) return;
@@ -74,14 +72,14 @@ function setXYZButtonEnabled(enabled) {
   if (btn) btn.disabled = !enabled;
 }
 function cancelActiveTransform() {
-  // erhöht das Token → laufende Animations‑Loops beenden sich selbst
+  // increase the token → running animation loops terminate themselves
   transformToken++;
   isAnimatingTransform = false;
   const ent = document.getElementById('current-pointcloud');
   if (ent) ent.removeAttribute('animation__rotate');
 }
 
-/*--- Cache‑Key‑Helper ----------------------------------------------------*/
+/*--- Cache key helpers ---------------------------------------------------*/
 function getKeysFor(maxDim) {
   const dim = typeof maxDim === 'number' ? maxDim : pcConfig.maxDimension;
   return {
@@ -90,7 +88,7 @@ function getKeysFor(maxDim) {
   };
 }
 
-/*--- Pixel‑Packing -------------------------------------------------------*/
+/*--- Pixel packing -------------------------------------------------------*/
 function packPixels(imageData) {
   const { width, height, data } = imageData;   // data = RGBA Uint8ClampedArray
   const out = new Uint8Array(width * height * 3);
@@ -103,7 +101,7 @@ function packPixels(imageData) {
   return out;
 }
 
-/*--- Cache‑I/O -----------------------------------------------------------*/
+/*--- Cache I/O -----------------------------------------------------------*/
 async function storeBinaryToCache(pixels, w, h, maxDim) {
   try {
     const cache = await caches.open(CACHE_NAME);
@@ -116,7 +114,7 @@ async function storeBinaryToCache(pixels, w, h, maxDim) {
       headers: { 'Content-Type': 'application/octet-stream' }
     }));
 
-    // kleine Backup‑Option für sehr kleine Bilder (optional)
+    // small backup option for very small images (optional)
     const maxBackup = 200_000; // pixel count
     if (w * h <= maxBackup) {
       const str = JSON.stringify({ width: w, height: h, pixels: Array.from(pixels) });
@@ -148,11 +146,11 @@ async function readBinaryFromCache(maxDim) {
         return { width: meta.width, height: meta.height, pixels: pix };
       }
     } catch (e) {
-      console.warn('[PC] Cache‑Read‑Fehler, fallback zu localStorage', e);
+      console.warn('[PC] Cache read error, falling back to localStorage', e);
     }
   }
 
-  // Fallback: localStorage‑Backup (wie vorher)
+  // Fallback: localStorage backup (as before)
   try {
     const comp = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (comp) {
@@ -160,7 +158,7 @@ async function readBinaryFromCache(maxDim) {
       return { width: obj.width, height: obj.height, pixels: new Uint8Array(obj.pixels) };
     }
   } catch (e) {
-    console.warn('[PC] localStorage‑Restore‑Fehler', e);
+    console.warn('[PC] localStorage restore error', e);
   }
   return null;
 }
@@ -189,7 +187,7 @@ async function clearCacheAndStorage() {
   }
 }
 
-/*--- A‑Frame‑Component ---------------------------------------------------*/
+/*--- A‑Frame component ---------------------------------------------------*/
 AFRAME.registerComponent('point-cloud', {
   schema: { size: { default: 0.02 } },
   update(old) {
@@ -209,7 +207,7 @@ AFRAME.registerComponent('point-cloud', {
 });
 
 ////////////////////////////////////////////////////////////
-// 3️⃣ Geometrie‑Fit‑und‑Render‑Hilfen
+// 3️⃣ Geometry fit and render helpers
 ////////////////////////////////////////////////////////////
 function fitPointCloudToView(entity, padding = 1.1) {
   const camEl = document.getElementById('main-camera');
@@ -237,7 +235,7 @@ function fitPointCloudToView(entity, padding = 1.1) {
 }
 
 /*=====================================================================
-  renderPointCloudFromBytes – neues Bild rendern
+  renderPointCloudFromBytes – render a new image
 =====================================================================*/
 function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
   const scene = document.querySelector('a-scene');
@@ -247,7 +245,7 @@ function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
   }
 
   // --------------------------------------------------------------
-  // 1️⃣ Entity holen / anlegen
+  // 1️⃣ Get or create entity
   // --------------------------------------------------------------
   let entity = document.getElementById('current-pointcloud');
   if (!entity) {
@@ -258,21 +256,21 @@ function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
   }
 
   // --------------------------------------------------------------
-  // 2️⃣ Alte GPU‑Ressourcen & Rotation entfernen
+  // 2️⃣ Dispose old GPU resources & remove rotation
   // --------------------------------------------------------------
-  disposePointCloudEntity(entity);               // alte Geometrie/Material freigeben
-  entity.removeAttribute('animation__rotate');   // laufende Dreh‑Animation stoppen
+  disposePointCloudEntity(entity);               // free old geometry/material
+  entity.removeAttribute('animation__rotate');   // stop ongoing rotation animation
 
-  // **WICHTIG:** Rotationsmatrix zurücksetzen, sonst bleibt das alte
-  // Dreh‑Winkel erhalten. Danach wird die Position später von
-  // fitPointCloudToView neu berechnet.
-  entity.object3D.rotation.set(0, 0, 0);         // <‑‑ Reset zur Identität
-  // (optional) Position ebenfalls zurücksetzen, damit fit… nicht von
-  // einer evtl. verschobenen Ausgangsposition ausgeht:
+  // IMPORTANT: Reset rotation matrix, otherwise the old rotation
+  // angle remains. Afterwards, position will be recomputed by
+  // fitPointCloudToView.
+  entity.object3D.rotation.set(0, 0, 0);         // <-- reset to identity
+  // (optional) also reset position so fit… doesn't rely on a
+  // previously shifted starting position:
   // entity.object3D.position.set(0, 0, 0);
 
   // --------------------------------------------------------------
-  // 3️⃣ Decimation (Quest‑freundlich)
+  // 3️⃣ Decimation (Quest‑friendly)
   // --------------------------------------------------------------
   const total   = w * h;
   const stride  = Math.max(1, Math.ceil(Math.sqrt(total / maxPoints)));
@@ -298,7 +296,7 @@ function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
   }
 
   // --------------------------------------------------------------
-  // 4️⃣ BufferGeometry bauen
+  // 4️⃣ Build BufferGeometry
   // --------------------------------------------------------------
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -317,12 +315,12 @@ function renderPointCloudFromBytes(w, h, pixels, { maxPoints = 300_000 } = {}) {
   entity.setObject3D('mesh', points);
 
   // --------------------------------------------------------------
-  // 5️⃣ Sichtfeld‑Anpassung – **immer nach dem Render!**
+  // 5️⃣ Fit to view – always after render!
   // --------------------------------------------------------------
-  fitPointCloudToView(entity, 1.1);   // 10 % Rand, mittig vor Kamera
+  fitPointCloudToView(entity, 1.1);   // 10% padding, centered in front of camera
 }
 
-/*--- Entity‑Dispose ------------------------------------------------------*/
+/*--- Entity dispose ------------------------------------------------------*/
 function disposePointCloudEntity(entity) {
   const obj = entity?.getObject3D('mesh');
   if (obj) {
@@ -332,7 +330,7 @@ function disposePointCloudEntity(entity) {
   }
 }
 
-/*--- Image‑Loading -------------------------------------------------------*/
+/*--- Image loading -------------------------------------------------------*/
 async function loadImageBitmap(url, maxDim) {
   const wantResize = typeof maxDim === 'number' && maxDim > 0;
   if (url.startsWith('data:')) {
@@ -367,29 +365,29 @@ async function loadImageBitmap(url, maxDim) {
 }
 
 /* --------------------------------------------------------------
-   Bild → Canvas → ImageData → RGB‑Bytes
+   Image → Canvas → ImageData → RGB bytes
    -------------------------------------------------------------- */
 async function processImage(imageUrl, options = {}) {
-  const token = ++currentProcessToken; // Cancel‑Token
+  const token = ++currentProcessToken; // cancel token
   const maxDim = typeof options.maxDimension === 'number'
                  ? options.maxDimension
-                 : pcConfig.maxDimension;   // ← neue Zeile
+                 : pcConfig.maxDimension;   // ← new line
 
   try {
-    // 1️⃣ Bitmap holen (inkl. evtl. Downscale)
+    // 1️⃣ Get bitmap (including optional downscale)
     const bitmap = await loadImageBitmap(imageUrl, maxDim);
     if (token !== currentProcessToken) { bitmap?.close?.(); return; }
 
     const w = bitmap.width, h = bitmap.height;
 
-    // 2️⃣ Canvas → ImageData → RGB‑Bytes (Fallback, funktioniert überall)
+    // 2️⃣ Canvas → ImageData → RGB bytes (fallback, works everywhere)
     const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     if (!ctx) {
-      throw new Error('2D‑Canvas‑Context nicht verfügbar');
+      throw new Error('2D canvas context not available');
     }
 
     ctx.drawImage(bitmap, 0, 0, w, h);
@@ -398,25 +396,25 @@ async function processImage(imageUrl, options = {}) {
     const imgData    = ctx.getImageData(0, 0, w, h);
     const pixelBytes = packPixels(imgData);
 
-    // Canvas wieder freigeben
+    // free canvas
     canvas.width = canvas.height = 0;
 
-    // 3️⃣ In Cache speichern … und sofort rendern
+    // 3️⃣ Store in cache … and render immediately
     await storeBinaryToCache(pixelBytes, w, h, maxDim);
-    // Direkt rendern, ohne erneut aus dem Cache zu lesen
+    // Render directly without reading again from cache
     renderPointCloudFromBytes(w, h, pixelBytes, { maxPoints: 300_000 });
   } catch (e) {
     console.error('[PC] processImage error', e);
     setXYZButtonEnabled(true);
-    throw e; // WICHTIG: Fehler an Aufrufer weitergeben
+    throw e; // IMPORTANT: propagate error to caller
   }
 }
 
-//*--- Laden aus Cache beim Start (Tab‑Reload) ---------------------------*/
+//*--- Load from storage on startup (tab reload) --------------------------*/
 async function loadPointCloudFromStorage() {
   const data = await readBinaryFromCache(pcConfig.maxDimension);
   if (data) {
-    cancelActiveTransform(); // sicherstellen, dass keine Rotation läuft
+    cancelActiveTransform(); // ensure no rotation is running
     isXYZMode = false;
     setXYZButtonState();
     renderPointCloudFromBytes(data.width, data.height, data.pixels, { maxPoints: 300_000 });
@@ -425,7 +423,7 @@ async function loadPointCloudFromStorage() {
   }
 }
 
-/*--- Cache‑Pruning (nur aktuelle Auflösung behalten) --------------------*/
+/*--- Cache pruning (keep only current resolution) -----------------------*/
 async function pruneCacheExcept(maxDimKeep) {
   if (!('caches' in window)) return;
   const cache = await caches.open(CACHE_NAME);
@@ -439,7 +437,7 @@ async function pruneCacheExcept(maxDimKeep) {
   }
 }
 
-/*--- Rotation ---------------------------------------------*/
+/*--- Rotation ------------------------------------------------------------*/
 function startRotation(entity) {
   entity.removeAttribute('animation__rotate');
   entity.setAttribute('animation__rotate', {
@@ -482,7 +480,7 @@ function transformToXYZ() {
   const dur   = 2000;
 
   function animate() {
-    if (myToken !== transformToken) return; // wurde abgebrochen
+    if (myToken !== transformToken) return; // was cancelled
     const t = Math.min((Date.now() - start) / dur, 1);
     const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; // easeInOutCubic
 
@@ -552,17 +550,17 @@ function revertToRGB() {
     else {
       if (myToken !== transformToken) return;
       geom.computeBoundingSphere();
-      isXYZMode = false;               // zurück zu RGB
-      setXYZButtonState();             // Button‑Label updaten
+      isXYZMode = false;               // back to RGB
+      setXYZButtonState();             // update button label
       setXYZButtonEnabled(true);
-      fitPointCloudToView(entity, 1.1); // wieder mittig
+      fitPointCloudToView(entity, 1.1); // center again
       isAnimatingTransform = false;
     }
   }
   animate();
 }
 
-/*--- UI‑Panel (max‑Dim, XYZ‑Button, Cache‑Clear) ----------------------*/
+/*--- UI panel (max-dim, XYZ button, clear cache) ------------------------*/
 function createVRControlPanel() {
   const existing = document.getElementById('vr-control-panel');
   if (existing) return;
@@ -577,23 +575,23 @@ function createVRControlPanel() {
     z-index:10000;max-width:260px;
   `;
 
-  //* ----- bestehender Inhalt (Max‑Dim, Upload image, Load from URL, XYZ‑Button, Clear‑Cache) -----*/
+  //* ----- existing content (max-dim, Upload image, Load from URL, XYZ button, Clear cache) -----*/
 
   panel.innerHTML = `
     <div style="margin-bottom:10px;"><strong>RGB to XYZ pointcloud</strong></div>
 
     <label style="display:block;margin-bottom:8px;">
       Max Dimension (px):
-      <input id="pc-max-dim" type="number" min="0" value="${pcConfig.maxDimension}"
+      <input id="pc-max-dim" type="number" min="0" value="\${pcConfig.maxDimension}"
              style="width:80px;padding:4px;">
     </label>
 
     <div class="button-row">
-      <!-- Upload‑Button (Label, öffnet den versteckten <input>) -->
+      <!-- Upload button (label, opens the hidden <input>) -->
       <label for="fileInput" class="btn"
              style="margin:0;">Upload image</label>
 
-      <!-- Load‑from‑URL‑Button -->
+      <!-- Load-from-URL button -->
       <button id="loadUrlBtn" class="btn"
               style="margin:0;">Load from URL</button>
     </div>
@@ -616,7 +614,7 @@ function createVRControlPanel() {
 
   document.body.appendChild(panel);
 
-  /* ---------- Button‑Handler (wie vorher) ---------- */
+  /* ---------- Button handlers (as before) ---------- */
   const xyzBtn = document.getElementById('pc-xyz-transform');
   xyzBtn.addEventListener('click', () => {
     if (isAnimatingTransform) return;
@@ -624,7 +622,7 @@ function createVRControlPanel() {
       transformToXYZ();
       isXYZMode = true;
     } else {
-      revertToRGB();               // setzt isXYZMode intern zurück
+      revertToRGB();               // resets isXYZMode internally
     }
     setXYZButtonState();
   });
@@ -659,7 +657,7 @@ function createVRControlPanel() {
 document.addEventListener('DOMContentLoaded', () => {
   const scene = document.querySelector('a-scene');
 
-  // UI‑Ausblenden/Einblenden erst, wenn die Szene komplett geladen ist
+  // Hide/show UI only after the scene has fully loaded
   scene.addEventListener('loaded', () => {
     scene.addEventListener('enter-vr', () => {
       ['vr-control-panel', 'fileInput', 'loading', 'message', 'sample-thumbs'].forEach(id => {
@@ -679,19 +677,19 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-/*--- Initialisierung ----------------------------------------------------*/
-  createVRControlPanel();        // UI‑Panel erzeugen
+/*--- Initialization ------------------------------------------------------*/
+  createVRControlPanel();        // create UI panel
   ensureFreshStorage().then(() => {
 
-  // Wenn etwas im Cache liegt, nimm das; sonst lade Defaultbild
+  // If something is in the cache, use it; otherwise load default image
   loadPointCloudFromStorage().then(() => {
-    // Prüfen, ob bereits etwas gerendert wurde
+    // Check if something has already been rendered
     const hasCloud = !!document.getElementById('current-pointcloud');
     if (!hasCloud) {
       const scene = document.querySelector('a-scene');
       if (!scene) return;
       const startDefault = () => {
-        // Wähle 0 (Original) oder z.B. 1024 für Headsets
+        // Choose 0 (original) or e.g. 1024 for headsets
         const options = { maxDimension: 0 };
         processImage('img/Berg.webp', options);
       };
@@ -700,5 +698,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-
-

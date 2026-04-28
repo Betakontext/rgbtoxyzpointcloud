@@ -6,16 +6,16 @@
 
 
 =====================================================================
-  upload.js –  Datei‑Upload + Bild‑von‑URL‑Upload
-  (alle Listener erst nach DOM‑Ready, robustes ID‑Handling)
-  + Indirekte URL-Auflösung (Wikipedia/Wikimedia + generisch via og:image)
-  + VR-optimierte Thumbnails von Wikimedia (performanter für Quest)
-  + Verbesserte Fehler-Logs und CORS-Hinweise
+  upload.js – File upload + load image from URL
+  (bind all listeners only after DOM ready, robust ID handling)
+  + Indirect URL resolution (Wikipedia/Wikimedia + generic via og:image)
+  + VR-optimized thumbnails from Wikimedia (more performant for Quest)
+  + Improved error logs and CORS hints
 =====================================================================*/
 
 document.addEventListener('DOMContentLoaded', () => {
   /* --------------------------------------------------------------
-     1️⃣  Hilfs‑Funktionen
+     1️⃣  Helper functions
      -------------------------------------------------------------- */
 
   async function clearPreviousPointcloudStorage() {
@@ -29,10 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
             await cache.delete(req);
           }
         }
-        console.log('[PC] alte Point‑Cloud‑Cache‑Einträge gelöscht');
+        console.log('[PC] old point-cloud cache entries deleted');
       }
     } catch (e) {
-      console.warn('[PC] Cache‑Löschung fehlgeschlagen', e);
+      console.warn('[PC] cache clearing failed', e);
     }
 
     try {
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sessionStorage.removeItem('pc_last_image_dataurl');
       localStorage.removeItem('pc_last_image_dataurl');
     } catch (e) {
-      console.warn('[PC] localStorage‑Löschung fehlgeschlagen', e);
+      console.warn('[PC] localStorage clearing failed', e);
     }
   }
 
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* --------------------------------------------------------------
-     1.1  XR‑Erkennung (für VR-optimierte Thumbnails)
+     1.1  XR detection (for VR-optimized thumbnails)
      -------------------------------------------------------------- */
 
   async function isXRAvailable() {
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* --------------------------------------------------------------
-     1.2  URL‑Auflösung: indirekte → direkte Bild‑URL
+     1.2  URL resolution: indirect → direct image URL
      -------------------------------------------------------------- */
 
   function looksLikeImageURL(u) {
@@ -111,12 +111,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return null;
     } catch (e) {
-      console.warn('[resolveGenericPageImage] Fehler:', e);
+      console.warn('[resolveGenericPageImage] error:', e);
       throw e;
     }
   }
 
-  // Fehlertypen erkennen und Hinweis zeigen
+  // Detect common error types and show a hint
   function isLikelyCORSError(err) {
     const msg = String(err && (err.message || err)).toLowerCase();
     return (
@@ -132,31 +132,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showCORSHint(url) {
     const hint =
-      'Das Bild konnte nicht geladen/verarbeitet werden, wahrscheinlich wegen fehlender CORS-Freigabe der Quellseite.\n\n' +
-      'Was du tun kannst:\n' +
-      '• Nutze eine direkte Bild-URL von einer Domain mit CORS-Freigabe (z. B. upload.wikimedia.org).\n' +
-      '• Bei Wikipedia: Verwende die Direkt-URL (Commons-Upload) oder die Medienseite, die auf die Datei verweist.\n' +
-      '• Alternativ: Richte später einen kleinen Bild-Proxy ein (Server-seitig), um CORS zu umgehen.\n\n' +
+      'The image could not be loaded/processed, likely due to missing CORS permissions of the source site.\n\n' +
+      'What you can do:\n' +
+      '• Use a direct image URL from a domain with CORS enabled (e.g., upload.wikimedia.org).\n' +
+      '• For Wikipedia: Use the direct URL (Commons upload) or the media page that references the file.\n' +
+      '• Alternatively: Later set up a small image proxy (server-side) to bypass CORS.\n\n' +
       'URL: ' + url;
     alert(hint);
   }
 
-  // Datei-Titel aus Wikipedia-/Wikimedia-URL extrahieren (inkl. #/media/…)
+  // Extract file title from Wikipedia/Wikimedia URL (incl. #/media/…)
   function extractWikiFileTitleFromUrl(inputUrl) {
     try {
       const u = new URL(inputUrl, location.href);
 
-      // Debug-Log: zeigt das Fragment (alles hinter #)
+      // Debug log: shows the fragment (everything after #)
       console.log('[Wiki] u.hash:', u.hash);
 
-      // a) Fragment: #/media/File:XYZ (mehrsprachig)
+      // a) Fragment: #/media/File:XYZ (multilingual)
       if (u.hash) {
         const frag = decodeURIComponent(u.hash);
         const mFrag = frag.match(/#\/media\/(File|Datei|Fichier|Archivo|Date|Arquivo|Ficheiro|Файл|ファイル|파일):([^?#]+)/i);
         if (mFrag && mFrag[2]) return mFrag[2];
       }
 
-      // b) Pfad: /wiki/File:XYZ (mehrsprachig)
+      // b) Path: /wiki/File:XYZ (multilingual)
       const path = decodeURIComponent(u.pathname);
       const mPath = path.match(/\/(wiki|w)\/(File|Datei|Fichier|Archivo|Date|Arquivo|Ficheiro|Файл|ファイル|파일):([^/?#]+)/i);
       if (mPath && mPath[3]) return mPath[3];
@@ -181,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const url = page?.imageinfo?.[0]?.url;
       return url || null;
     } catch (e) {
-      console.warn('[resolveViaWikimediaAPIByTitleOriginal] Fehler:', e);
+      console.warn('[resolveViaWikimediaAPIByTitleOriginal] error:', e);
       return null;
     }
   }
@@ -201,14 +201,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const orig = page?.imageinfo?.[0]?.url;
       return thumb || orig || null;
     } catch (e) {
-      console.warn('[resolveViaWikimediaAPIByTitleThumb] Fehler:', e);
+      console.warn('[resolveViaWikimediaAPIByTitleThumb] error:', e);
       return null;
     }
   }
 
   async function resolveWikipediaImage(url, { preferThumbnail = false, thumbWidth = 1024 } = {}) {
     try {
-      // Bereits eine direkte Upload-URL?
+      // Already a direct upload URL?
       if (/^https?:\/\/upload\.wikimedia\.org\//i.test(url) && looksLikeImageURL(url)) {
         console.log('[Wiki] already direct upload URL');
         return url;
@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const fileTitle = extractWikiFileTitleFromUrl(url);
       console.log('[Wiki] extracted file title:', fileTitle);
       if (!fileTitle) {
-        throw new Error('Wikipedia-Dateititel konnte nicht extrahiert werden (Fragment/Pfad).');
+        throw new Error('Could not extract Wikipedia file title (fragment/path).');
       }
 
       if (preferThumbnail) {
@@ -230,12 +230,12 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('[Wiki] API original url:', original);
       if (original) return original;
 
-      // KEIN HTML-Fetch von en.wikipedia.org mehr (CORS)!
-      // throw statt Fallback auf HTML:
-      throw new Error('Wikipedia: Keine Bild-URL von der Commons-API erhalten.');
+      // NO HTML fetch from en.wikipedia.org anymore (CORS)!
+      // throw instead of fallback to HTML:
+      throw new Error('Wikipedia: No image URL returned by the Commons API.');
     } catch (e) {
-      console.warn('[resolveWikipediaImage] Fehler:', e);
-      throw e; // nach außen geben, damit der Button-catch greift
+      console.warn('[resolveWikipediaImage] error:', e);
+      throw e; // propagate outward so the button-catch handles it
     }
   }
 
@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       u = new URL(inputUrl, location.href);
     } catch {
-      throw new Error('Ungültige URL.');
+      throw new Error('Invalid URL.');
     }
 
     const xr = await isXRAvailable();
@@ -259,18 +259,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const thumbWidth = uiMax > 0 ? uiMax : 1024;
       const w = await resolveWikipediaImage(u.href, { preferThumbnail: xr, thumbWidth });
       if (w) return w;
-      throw new Error('Wikipedia-Resolver gab keine URL zurück.');
+      throw new Error('Wikipedia resolver returned no URL.');
     }
 
     const gen = await resolveGenericPageImage(u.href);
     console.log('[resolveImageUrl] generic og:image:', gen);
     if (gen) return gen;
 
-    throw new Error('Konnte indirekte URL nicht in eine direkte Bild‑URL auflösen (CORS/Meta‑Tags fehlen?).');
+    throw new Error('Could not resolve indirect URL to a direct image URL (CORS/meta tags missing?).');
   }
 
   /* --------------------------------------------------------------
-     2️⃣  Datei‑Upload (bestehend)
+     2️⃣  File upload (existing)
      -------------------------------------------------------------- */
   const fileInput = document.getElementById('fileInput');
   fileInput.addEventListener('change', async function (event) {
@@ -278,12 +278,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!file) return;
 
     if (!file.type || !file.type.startsWith('image/')) {
-      alert('Bitte ein Bild auswählen.');
+      alert('Please select an image.');
       return;
     }
 
-    const maxWarnBytes = 10 * 1024 * 1024; // 10 MiB
-    if (file.size > maxWarnBytes && !confirm('Die Datei ist >10 MiB. Weiter?')) {
+    const maxWarnBytes = 10 * 1024 * 1024; // 10 MiB
+    if (file.size > maxWarnBytes && !confirm('The file is >10 MiB. Continue?')) {
       return;
     }
 
@@ -292,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const reader = new FileReader();
     reader.onload = async e => {
-      const imageUrl = e.target.result; // Data‑URL
+      const imageUrl = e.target.result; // data URL
 
       storeLastImageUrl(imageUrl);
 
@@ -300,10 +300,10 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         await processImage(imageUrl, options);
         const msg = document.getElementById('message');
-        if (msg) msg.textContent = 'Bild verarbeitet.';
+        if (msg) msg.textContent = 'Image processed.';
       } catch (err) {
-        console.error('[Upload] Fehler bei processImage:', err);
-        alert('Fehler beim Verarbeiten des Bildes.');
+        console.error('[Upload] error in processImage:', err);
+        alert('Error while processing the image.');
       } finally {
         if (loadingEl) loadingEl.style.display = 'none';
       }
@@ -312,24 +312,24 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.onerror = () => {
       if (loadingEl) loadingEl.style.display = 'none';
       const msg = document.getElementById('message');
-      if (msg) msg.textContent = 'Fehler beim Lesen der Datei.';
-      alert('Fehler beim Lesen der Datei.');
+      if (msg) msg.textContent = 'Error reading the file.';
+      alert('Error reading the file.');
     };
 
     reader.readAsDataURL(file);
   });
 
   /* --------------------------------------------------------------
-     3️⃣  Bild‑von‑URL‑Upload (mit indirekter URL‑Auflösung)
+     3️⃣  Load image from URL (with indirect URL resolution)
      -------------------------------------------------------------- */
   const loadUrlBtn = document.getElementById('loadUrlBtn');
   loadUrlBtn.addEventListener('click', async () => {
     const urlInput = document.getElementById('imageUrlInput');
-    if (!urlInput) { alert('URL‑Eingabefeld nicht gefunden.'); return; }
+    if (!urlInput) { alert('URL input field not found.'); return; }
 
     const raw = urlInput.value.trim();
-    if (!raw) { alert('Bitte eine Bild‑URL eingeben.'); return; }
-    if (!/^https?:\/\//i.test(raw)) { alert('Bitte eine gültige http/https‑URL eingeben.'); return; }
+    if (!raw) { alert('Please enter an image URL.'); return; }
+    if (!/^https?:\/\//i.test(raw)) { alert('Please enter a valid http/https URL.'); return; }
 
     const loadingEl = document.getElementById('loading');
     if (loadingEl) loadingEl.style.display = 'block';
@@ -337,11 +337,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (msgEl) msgEl.textContent = '';
 
     try {
-      // 1) Indirekte URL → direkte Bild-URL
+      // 1) Indirect URL → direct image URL
       const directUrl = await resolveImageUrl(raw);
       console.log('[URL] resolved →', directUrl);
 
-      // 2) Bild verarbeiten (eigener Catch, falls Canvas/CORS erst hier knallt)
+      // 2) Process image (own catch in case Canvas/CORS fails only here)
       storeLastImageUrl(directUrl);
       const options = { maxDimension: getMaxDimensionFromUI() };
       try {
@@ -349,25 +349,25 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (e2) {
         console.error('[processImage] error for', directUrl, e2);
         if (isLikelyCORSError(e2)) {
-          if (msgEl) msgEl.textContent = 'Laden fehlgeschlagen (CORS). Details siehe Hinweis.';
+          if (msgEl) msgEl.textContent = 'Loading failed (CORS). See hint for details.';
           showCORSHint(directUrl);
         } else {
-          if (msgEl) msgEl.textContent = 'Laden fehlgeschlagen. Details siehe Hinweis.';
-          alert('Fehler bei der Bildverarbeitung.\n\nDetails: ' + (e2?.message || e2));
+          if (msgEl) msgEl.textContent = 'Loading failed. See hint for details.';
+          alert('Error while processing the image.\n\nDetails: ' + (e2?.message || e2));
         }
         return;
       }
 
-      if (msgEl) msgEl.textContent = 'Bild von URL geladen.';
+      if (msgEl) msgEl.textContent = 'Image loaded from URL.';
     } catch (e) {
-      console.error('[URL‑Laden] Fehler:', e);
+      console.error('[URL load] error:', e);
 
       if (isLikelyCORSError(e)) {
-        if (msgEl) msgEl.textContent = 'Laden fehlgeschlagen (CORS). Details siehe Hinweis.';
+        if (msgEl) msgEl.textContent = 'Loading failed (CORS). See hint for details.';
         showCORSHint(raw);
       } else {
-        if (msgEl) msgEl.textContent = 'Laden fehlgeschlagen. Details siehe Hinweis.';
-        alert('Konnte das Bild nicht laden/verarbeiten.\n\nDetails: ' + (e?.message || e));
+        if (msgEl) msgEl.textContent = 'Loading failed. See hint for details.';
+        alert('Could not load/process the image.\n\nDetails: ' + (e?.message || e));
       }
     } finally {
       if (loadingEl) loadingEl.style.display = 'none';
@@ -375,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
     /* --------------------------------------------------------------
-     Beispiel‑Thumbnail‑Loader
+     Example thumbnail loader
      -------------------------------------------------------------- */
     const thumbsWrap = document.getElementById('sample-thumbs');
     if (thumbsWrap) {
@@ -392,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (msgEl) msgEl.textContent = '';
 
         try {
-          // Falls mal eine indirekte URL hinterlegt ist, wird sie hier aufgelöst.
+          // If an indirect URL is provided, resolve it here.
           const directUrl = await resolveImageUrl(fullUrl);
           console.log('[Thumb] resolved →', directUrl);
 
@@ -404,24 +404,24 @@ document.addEventListener('DOMContentLoaded', () => {
           } catch (e2) {
             console.error('[Thumb/processImage] error', e2);
             if (isLikelyCORSError(e2)) {
-              if (msgEl) msgEl.textContent = 'Laden fehlgeschlagen (CORS). Details siehe Hinweis.';
+              if (msgEl) msgEl.textContent = 'Loading failed (CORS). See hint for details.';
               showCORSHint(directUrl);
             } else {
-              if (msgEl) msgEl.textContent = 'Laden fehlgeschlagen. Details siehe Hinweis.';
-              alert('Fehler bei der Bildverarbeitung.\n\nDetails: ' + (e2?.message || e2));
+              if (msgEl) msgEl.textContent = 'Loading failed. See hint for details.';
+              alert('Error while processing the image.\n\nDetails: ' + (e2?.message || e2));
             }
             return;
           }
 
-          if (msgEl) msgEl.textContent = 'Beispielbild geladen.';
+          if (msgEl) msgEl.textContent = 'Sample image loaded.';
         } catch (e) {
           console.error('[Thumb] load error', e);
           if (isLikelyCORSError(e)) {
-            if (msgEl) msgEl.textContent = 'Laden fehlgeschlagen (CORS). Details siehe Hinweis.';
+            if (msgEl) msgEl.textContent = 'Loading failed (CORS). See hint for details.';
             showCORSHint(fullUrl);
           } else {
-            if (msgEl) msgEl.textContent = 'Laden fehlgeschlagen. Details siehe Hinweis.';
-            alert('Konnte das Bild nicht laden/verarbeiten.\n\nDetails: ' + (e?.message || e));
+            if (msgEl) msgEl.textContent = 'Loading failed. See hint for details.';
+            alert('Could not load/process the image.\n\nDetails: ' + (e?.message || e));
           }
         } finally {
           if (loadingEl) loadingEl.style.display = 'none';
